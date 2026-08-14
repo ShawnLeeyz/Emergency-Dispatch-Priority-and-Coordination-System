@@ -12,10 +12,10 @@ namespace Emergency_Dispatch_Priority_and_Coordination_System.Domain
     {
 
         // This enum represents the severity of a case
-        public enum SeverityType { None, Low, Medium, High }
+        public enum SeverityType { Low, Medium, High }
         
         // This enum represents the status of a case
-        public enum StatusType { None, Open, InProgress, Closed }
+        public enum StatusType { Open, InProgress, Closed }
         public enum PriorityType { Low, Medium, High }
 
         //All attributes relating towards the case are defined here
