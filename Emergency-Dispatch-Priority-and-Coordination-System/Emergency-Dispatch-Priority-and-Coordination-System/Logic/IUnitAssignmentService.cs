@@ -6,7 +6,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 //Interface for the unit assignment service
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Logic
 {
-    internal interface IUnitAssignmentService
+    public interface IUnitAssignmentService
     {
         bool TryAssign(Unit unit, Case dispatchCase);
     }

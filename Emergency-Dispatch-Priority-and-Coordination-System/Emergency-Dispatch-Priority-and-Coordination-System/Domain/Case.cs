@@ -8,7 +8,7 @@ using System.Text;
 
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Domain
 {
-    internal class Case
+    public class Case
     {
 
         // This enum represents the severity of a case

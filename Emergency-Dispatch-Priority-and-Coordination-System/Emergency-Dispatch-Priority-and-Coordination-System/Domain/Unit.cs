@@ -8,7 +8,7 @@ using System.Text;
  */
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Domain
 {
-    internal class Unit
+    public class Unit
     {
         //This enum relates to all status avaliable for the units
         public enum UnitStatus { Assigned, Unassigned }

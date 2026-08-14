@@ -6,7 +6,7 @@ using System.Text;
 //This class contains all the logic on the automation on the PriorityStrategy
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Logic
 {
-    internal class KeywordSeverityPriority : IPriorityStrategy
+    public class KeywordSeverityPriority : IPriorityStrategy
     {
 
         //This method checks the descriptors for a certain key word to determine the priority level
