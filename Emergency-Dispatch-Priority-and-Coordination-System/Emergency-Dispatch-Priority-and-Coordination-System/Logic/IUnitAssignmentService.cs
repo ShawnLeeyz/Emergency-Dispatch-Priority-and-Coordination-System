@@ -1,13 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
-//Interface for the unit assignment service
-namespace Emergency_Dispatch_Priority_and_Coordination_System.Logic
-{
-    public interface IUnitAssignmentService
-    {
-        bool TryAssign(Unit unit, Case dispatchCase);
-    }
-}
+namespace Emergency_Dispatch_Priority_and_Coordination_System.Logic;
+
+/// <summary>Small abstraction retained for callers that need a single assignment attempt.</summary>
+public interface IUnitAssignmentService { bool TryAssign(Unit unit, Case dispatchCase); }

@@ -1,30 +1,19 @@
-﻿using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
-using System;
-using System.Collections.Generic;
-using System.Text;
+using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
-//This class contains all the logic on the automation on the PriorityStrategy
-namespace Emergency_Dispatch_Priority_and_Coordination_System.Logic
+namespace Emergency_Dispatch_Priority_and_Coordination_System.Logic;
+
+/// <summary>Prototype decision policy. It is deliberately isolated so a department-specific policy can replace it.</summary>
+public sealed class KeywordSeverityPriority : IPriorityStrategy
 {
-    public class KeywordSeverityPriority : IPriorityStrategy
+    private static readonly string[] HighRiskTerms = ["unconscious", "fire", "weapon", "chest pain", "not breathing"];
+    private static readonly string[] MediumRiskTerms = ["injury", "accident", "collision"];
+
+    public Priority Calculate(Case dispatchCase)
     {
-
-        //This method checks the descriptors for a certain key word to determine the priority level
-        public Case.PriorityType Calculate(Case dispatchCase)
-        {
-            string text = dispatchCase.description.ToLowerInvariant(); //convert to lower case for case-insensitive comparison
-
-            if (text.Contains("unconscious") || text.Contains("fire") || text.Contains("weapon")) //Certain key words that trigger "High" priority
-            {
-                return Case.PriorityType.High;
-            }
-
-            if (text.Contains("injury") || text.Contains("accident")) //Certain key words that trigger "Medium" priority
-            {
-                return Case.PriorityType.Medium;
-            }
-
-            return Case.PriorityType.Low;
-        }
+        ArgumentNullException.ThrowIfNull(dispatchCase);
+        var text = dispatchCase.Description.ToLowerInvariant();
+        if (HighRiskTerms.Any(text.Contains)) return Priority.High;
+        if (MediumRiskTerms.Any(text.Contains)) return Priority.Medium;
+        return dispatchCase.Severity switch { Severity.High => Priority.High, Severity.Medium => Priority.Medium, _ => Priority.Low };
     }
 }

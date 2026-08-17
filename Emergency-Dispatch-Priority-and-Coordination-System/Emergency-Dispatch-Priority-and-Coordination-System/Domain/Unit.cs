@@ -1,34 +1,42 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+namespace Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
-/* This is the domain knoweldege of all the attributes of the units, which includes
- * (Id, UnitType, status, location, personnel count and Assigned Case)
- * 
- */
-namespace Emergency_Dispatch_Priority_and_Coordination_System.Domain
+public enum UnitAvailability { Available, Unavailable }
+
+public sealed class Unit
 {
-    public class Unit
+    public Guid Id { get; } = Guid.NewGuid();
+    public string Identifier { get; }
+    public ResponseUnitType Type { get; }
+    public string Location { get; private set; }
+    public int PersonnelCount { get; private set; }
+    public UnitAvailability Availability { get; private set; } = UnitAvailability.Available;
+    public Guid? AssignedCaseId { get; private set; }
+
+    public Unit(string identifier, ResponseUnitType type, string location, int personnelCount)
     {
-        //This enum relates to all status avaliable for the units
-        public enum UnitStatus { Assigned, Unassigned }
+        Identifier = string.IsNullOrWhiteSpace(identifier) ? throw new ArgumentException("Identifier is required.", nameof(identifier)) : identifier.Trim();
+        Type = type;
+        Location = string.IsNullOrWhiteSpace(location) ? throw new ArgumentException("Location is required.", nameof(location)) : location.Trim();
+        PersonnelCount = personnelCount > 0 ? personnelCount : throw new ArgumentOutOfRangeException(nameof(personnelCount));
+    }
 
-        // This enum relates to all types of units that are available
-        public enum UnitType { ambulance, fireFighter, police }
+    public void UpdateDetails(string location, int personnelCount)
+    {
+        Location = string.IsNullOrWhiteSpace(location) ? throw new ArgumentException("Location is required.", nameof(location)) : location.Trim();
+        PersonnelCount = personnelCount > 0 ? personnelCount : throw new ArgumentOutOfRangeException(nameof(personnelCount));
+    }
 
-        //These are the attributes that are related towards the unit
-        public string unitId { get; private set; } = Guid.NewGuid().ToString();
-        public UnitType type { get; private set; }
-        public UnitStatus status { get; set; } = UnitStatus.Unassigned;
-        public string location { get; private set; }
-        public int personnelCount { get; private set; }
-        public Case? assignedCase { get; set; } = null;
+    internal bool TryAssign(Case dispatchCase)
+    {
+        if (Availability != UnitAvailability.Available) return false;
+        Availability = UnitAvailability.Unavailable;
+        AssignedCaseId = dispatchCase.Id;
+        return true;
+    }
 
-        public Unit(UnitType type, string location, int personnelCount)
-        {
-            this.type = type;
-            this.location = location;
-            this.personnelCount = personnelCount;
-        }
+    internal void Release()
+    {
+        Availability = UnitAvailability.Available;
+        AssignedCaseId = null;
     }
 }

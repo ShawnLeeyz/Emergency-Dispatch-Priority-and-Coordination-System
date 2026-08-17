@@ -1,0 +1,12 @@
+@page
+@model Microsoft.AspNetCore.Mvc.RazorPages.PageModel
+
+@{
+    ViewData["Title"] = "Something went wrong";
+}
+
+<section class="panel">
+    <h1>We could not complete that action.</h1>
+    <p>Please return to the dashboard and try again. If the problem continues, tell a system administrator what you were doing.</p>
+    <a class="button" asp-page="/Index">Return to dashboard</a>
+</section>

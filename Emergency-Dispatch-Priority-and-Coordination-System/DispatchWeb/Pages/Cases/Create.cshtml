@@ -1,0 +1,72 @@
+@page
+@model DispatchWeb.Pages.Cases.CreateModel
+
+@{
+    ViewData["Title"] = "Record emergency";
+}
+
+<section class="page-heading">
+    <div>
+        <p class="eyebrow">FR-01 · FR-06</p>
+        <h1>Record an emergency</h1>
+        <p>Submitting creates the case, calculates priority, routes it, and attempts unit assignment.</p>
+    </div>
+</section>
+
+<form method="post" class="form-card" novalidate>
+    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+    <div class="form-grid">
+        <div class="form-field">
+            <label asp-for="Input.CallerName"></label>
+            <input asp-for="Input.CallerName" autocomplete="name" />
+            <span asp-validation-for="Input.CallerName" class="field-validation"></span>
+        </div>
+
+        <div class="form-field">
+            <label asp-for="Input.CallerPhone"></label>
+            <input asp-for="Input.CallerPhone" autocomplete="tel" />
+            <span asp-validation-for="Input.CallerPhone" class="field-validation"></span>
+        </div>
+
+        <div class="form-field">
+            <label asp-for="Input.IncidentType"></label>
+            <input asp-for="Input.IncidentType" placeholder="e.g. vehicle collision" />
+            <span asp-validation-for="Input.IncidentType" class="field-validation"></span>
+        </div>
+
+        <div class="form-field">
+            <label asp-for="Input.Location"></label>
+            <input asp-for="Input.Location" autocomplete="street-address" />
+            <span asp-validation-for="Input.Location" class="field-validation"></span>
+        </div>
+
+        <div class="form-field">
+            <label asp-for="Input.Severity"></label>
+            <select asp-for="Input.Severity" asp-items="Html.GetEnumSelectList<Severity>()"></select>
+            <span asp-validation-for="Input.Severity" class="field-validation"></span>
+        </div>
+    </div>
+
+    <div class="form-field">
+        <label asp-for="Input.Description"></label>
+        <textarea asp-for="Input.Description" rows="5"></textarea>
+        <span asp-validation-for="Input.Description" class="field-validation"></span>
+    </div>
+
+    <fieldset class="response-types">
+        <legend>Required response departments</legend>
+        <div class="response-type-options">
+            @foreach (var type in Enum.GetValues<ResponseUnitType>())
+            {
+                <label class="response-type-option">
+                    <input type="checkbox" name="Input.RequiredUnitTypes" value="@type" />
+                    <span>@type</span>
+                </label>
+            }
+        </div>
+        <span asp-validation-for="Input.RequiredUnitTypes" class="field-validation"></span>
+    </fieldset>
+
+    <button class="button" type="submit">Create and dispatch case</button>
+</form>

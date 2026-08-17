@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="ConsoleApp/ConsoleApp.csproj" />
   <Project Path="Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System.csproj" />
+  <Project Path="DispatchWeb/DispatchWeb.csproj" />
   <Project Path="Test/Test.csproj" />
 </Solution>
