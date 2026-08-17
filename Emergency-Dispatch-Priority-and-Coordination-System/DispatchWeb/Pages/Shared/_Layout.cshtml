@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] · Emergency Dispatch</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <header>
+        <a class="brand" asp-page="/Index">Emergency<span>Dispatch</span></a>
+        <nav>
+            <a asp-page="/Index">Live dashboard</a>
+            <a asp-page="/Cases/Create">New emergency</a>
+            <a asp-page="/Units">Units</a>
+            <a asp-page="/History">History</a>
+        </nav>
+    </header>
+
+    <main>
+        @RenderBody()
+    </main>
+</body>
+</html>

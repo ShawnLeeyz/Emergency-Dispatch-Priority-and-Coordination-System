@@ -1,0 +1,49 @@
+@page
+@model UnitsModel
+
+@{
+    ViewData["Title"] = "Units";
+}
+
+<section class="page-heading">
+    <div>
+        <p class="eyebrow">Department view</p>
+        <h1>Response unit availability</h1>
+        <p>Availability is protected by the dispatch service so a unit cannot be assigned to more than one active case.</p>
+    </div>
+</section>
+
+@foreach (var department in Model.Departments)
+{
+    <section class="panel">
+        <div class="panel-title">
+            <h2>@department.Name</h2>
+            <span>@department.Units.Count units</span>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Identifier</th>
+                        <th>Location</th>
+                        <th>Personnel</th>
+                        <th>Availability</th>
+                        <th>Assigned case</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var unit in department.Units)
+                    {
+                        <tr>
+                            <td><strong>@unit.Identifier</strong></td>
+                            <td>@unit.Location</td>
+                            <td>@unit.PersonnelCount</td>
+                            <td><span class="availability @unit.Availability.ToString().ToLowerInvariant()">@unit.Availability</span></td>
+                            <td>@(unit.AssignedCaseId?.ToString()[..8].ToUpperInvariant() ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}

@@ -1,0 +1,81 @@
+@page
+@model IndexModel
+
+@{
+    ViewData["Title"] = "Live dashboard";
+}
+
+<section class="page-heading">
+    <div>
+        <p class="eyebrow">Dispatcher view</p>
+        <h1>Live case dashboard</h1>
+        <p>New emergencies are prioritised, routed, and assigned to the first available unit.</p>
+    </div>
+    <a class="button" asp-page="/Cases/Create">Record emergency</a>
+</section>
+
+<section class="metrics">
+    <article><strong>@Model.Cases.Count(c => c.Status == CaseStatus.Open)</strong><span>Open</span></article>
+    <article><strong>@Model.Cases.Count(c => c.Status == CaseStatus.InProgress)</strong><span>In progress</span></article>
+    <article><strong>@Model.Departments.Sum(d => d.Units.Count(u => u.Availability == UnitAvailability.Available))</strong><span>Units available</span></article>
+</section>
+
+<section class="panel">
+    <div class="panel-title">
+        <h2>Active cases</h2>
+        <span>Refresh page for latest update</span>
+    </div>
+
+    @if (!Model.Cases.Any(c => c.Status != CaseStatus.Closed))
+    {
+        <p class="empty">No active cases. Record an emergency to begin dispatch.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Case</th><th>Priority</th><th>Incident</th><th>Location</th><th>Units</th><th>Status</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var dispatchCase in Model.Cases.Where(c => c.Status != CaseStatus.Closed))
+                    {
+                        <tr>
+                            <td><strong>@dispatchCase.CaseNumber</strong><br /><small>@dispatchCase.CallerName</small></td>
+                            <td><span class="priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td>
+                            <td>@dispatchCase.IncidentType<br /><small>@dispatchCase.Description</small></td>
+                            <td>@dispatchCase.Location</td>
+                            <td>@(dispatchCase.AssignedUnits.Any() ? string.Join(", ", dispatchCase.AssignedUnits.Select(unit => unit.Identifier)) : "Awaiting unit")</td>
+                            <td><span class="status">@dispatchCase.Status</span></td>
+                            <td>
+                                <form method="post" asp-page-handler="Close">
+                                    <input type="hidden" name="caseId" value="@dispatchCase.Id" />
+                                    <button class="text-button">Close case</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+<section class="panel">
+    <div class="panel-title"><h2>Assignment notifications</h2></div>
+    @if (!Model.Notifications.Any())
+    {
+        <p class="empty">No assignments yet.</p>
+    }
+    else
+    {
+        <ul class="notifications">
+            @foreach (var notification in Model.Notifications)
+            {
+                <li><strong>@notification.UnitIdentifier</strong> · @notification.CaseNumber<br /><span>@notification.Message</span></li>
+            }
+        </ul>
+    }
+</section>
