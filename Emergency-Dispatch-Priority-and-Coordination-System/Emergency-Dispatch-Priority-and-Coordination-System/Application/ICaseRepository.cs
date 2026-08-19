@@ -7,5 +7,5 @@ public interface ICaseRepository
     void Add(Case dispatchCase);
     Case? Get(Guid id);
     IReadOnlyCollection<Case> GetAll();
-    IReadOnlyCollection<Case> Search(string? term, DateOnly? date);
+    IReadOnlyCollection<Case> Search(string? callerName, string? caseId, DateOnly? date);
 }

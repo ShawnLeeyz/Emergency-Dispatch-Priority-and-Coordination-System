@@ -1,0 +1,93 @@
+@page "/Departments/{department}"
+@model DispatchWeb.Pages.Departments.DashboardModel
+
+@{
+    ViewData["Title"] = $"{Model.Department.Name} operations";
+    ViewData["AutoRefresh"] = true;
+}
+
+<section class="page-heading">
+    <div>
+        <p class="eyebrow">Department operations</p>
+        <h1>@Model.Department.Name dashboard</h1>
+        <p>Cases routed to @Model.Department.Name.ToLowerInvariant(), unit assignments, waiting work, and response sign-off.</p>
+    </div>
+    <div class="heading-actions">
+        <span class="live-indicator"><span></span> Updates every 5 seconds</span>
+        <a class="button button-secondary" asp-page="/Units" asp-route-department="@Model.DepartmentType">Manage units</a>
+    </div>
+</section>
+
+<section class="metrics metrics-four">
+    <article><span class="metric-label">Current cases</span><strong>@Model.Cases.Count</strong></article>
+    <article><span class="metric-label">Waiting</span><strong>@Model.Cases.Count(c => c.IsWaitingFor(Model.DepartmentType))</strong></article>
+    <article><span class="metric-label">Responding</span><strong>@Model.Department.Units.Count(u => u.Availability == UnitAvailability.Unavailable)</strong></article>
+    <article><span class="metric-label">Available units</span><strong>@Model.Department.Units.Count(u => u.Availability == UnitAvailability.Available)</strong></article>
+</section>
+
+<section class="panel">
+    <div class="panel-title">
+        <div><p class="section-kicker">Current workload</p><h2>Routed cases</h2></div>
+        <span>@Model.Cases.Count case@(Model.Cases.Count == 1 ? "" : "s")</span>
+    </div>
+
+    @if (!Model.Cases.Any())
+    {
+        <div class="empty-state"><h3>No current cases</h3><p>Cases requiring @Model.Department.Name.ToLowerInvariant() response will appear here automatically.</p></div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Case ID</th><th>Incident</th><th>Location</th><th>Priority</th><th>Department unit</th><th>Status</th><th>Response</th></tr></thead>
+                <tbody>
+                @foreach (var dispatchCase in Model.Cases)
+                {
+                    var activeUnit = dispatchCase.AssignedUnits.SingleOrDefault(unit => unit.Type == Model.DepartmentType);
+                    var completed = dispatchCase.Assignments.SingleOrDefault(a => a.Unit.Type == Model.DepartmentType && !a.IsActive);
+                    <tr class="@(dispatchCase.IsWaitingFor(Model.DepartmentType) ? "waiting-row" : null)">
+                        <td><strong class="case-number">@dispatchCase.CaseNumber</strong><small>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM, HH:mm")</small></td>
+                        <td><strong>@dispatchCase.IncidentType</strong><small class="truncate">@dispatchCase.Description</small></td>
+                        <td>@dispatchCase.Location</td>
+                        <td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td>
+                        <td>
+                            @if (activeUnit is not null) { <strong>@activeUnit.Identifier</strong><small>Response active</small> }
+                            else if (completed is not null) { <span>@completed.Unit.Identifier</span><small>Signed off</small> }
+                            else { <span class="waiting-label">Waiting for unit</span><small>Queued for @Model.Department.Name</small> }
+                        </td>
+                        <td><span class="badge status @dispatchCase.Status.ToString().ToLowerInvariant()">@(dispatchCase.Status == CaseStatus.InProgress ? "In Progress" : dispatchCase.Status)</span></td>
+                        <td>
+                            @if (activeUnit is not null)
+                            {
+                                <form method="post" asp-page-handler="SignOff" asp-route-department="@Model.DepartmentType">
+                                    <input type="hidden" name="caseId" value="@dispatchCase.Id" />
+                                    <input type="hidden" name="unitId" value="@activeUnit.Id" />
+                                    <button class="button button-compact" type="submit">Sign off</button>
+                                </form>
+                            }
+                            else { <span class="muted">No action</span> }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+<section class="panel">
+    <div class="panel-title"><div><p class="section-kicker">Unit inbox</p><h2>Assignment notifications</h2></div></div>
+    @if (!Model.Notifications.Any())
+    {
+        <p class="empty">No assignments have been sent to this department.</p>
+    }
+    else
+    {
+        <ul class="notifications">
+        @foreach (var notification in Model.Notifications)
+        {
+            <li><div><strong>@notification.UnitIdentifier</strong><span class="badge neutral">@notification.CaseNumber</span></div><p>@notification.Message</p><time>@notification.CreatedAt.LocalDateTime.ToString("dd MMM, HH:mm")</time></li>
+        }
+        </ul>
+    }
+</section>

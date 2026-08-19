@@ -2,61 +2,80 @@
 @model IndexModel
 
 @{
-    ViewData["Title"] = "Live dashboard";
+    ViewData["Title"] = "Operations dashboard";
+    ViewData["AutoRefresh"] = true;
+    var activeCases = Model.Cases.Where(c => c.Status != CaseStatus.Closed).ToArray();
+}
+
+@if (!string.IsNullOrWhiteSpace(Request.Query["created"]))
+{
+    <div class="alert alert-success" role="status">
+        <strong>@Request.Query["created"] created.</strong> Priority, routing, and available-unit assignment are complete.
+    </div>
 }
 
 <section class="page-heading">
     <div>
-        <p class="eyebrow">Dispatcher view</p>
-        <h1>Live case dashboard</h1>
-        <p>New emergencies are prioritised, routed, and assigned to the first available unit.</p>
+        <p class="eyebrow">Dispatch control</p>
+        <h1>Operations dashboard</h1>
+        <p>Monitor active emergencies, routed departments, and unit coverage from one concise view.</p>
     </div>
-    <a class="button" asp-page="/Cases/Create">Record emergency</a>
+    <div class="heading-actions">
+        <span class="live-indicator"><span></span> Updates every 5 seconds</span>
+        <a class="button" asp-page="/Cases/Create">Record emergency</a>
+    </div>
 </section>
 
-<section class="metrics">
-    <article><strong>@Model.Cases.Count(c => c.Status == CaseStatus.Open)</strong><span>Open</span></article>
-    <article><strong>@Model.Cases.Count(c => c.Status == CaseStatus.InProgress)</strong><span>In progress</span></article>
-    <article><strong>@Model.Departments.Sum(d => d.Units.Count(u => u.Availability == UnitAvailability.Available))</strong><span>Units available</span></article>
+<section class="metrics metrics-four" aria-label="Current operational totals">
+    <article><span class="metric-label">Open / waiting</span><strong>@Model.Cases.Count(c => c.Status == CaseStatus.Open)</strong></article>
+    <article><span class="metric-label">In progress</span><strong>@Model.Cases.Count(c => c.Status == CaseStatus.InProgress)</strong></article>
+    <article><span class="metric-label">Available units</span><strong>@Model.Departments.Sum(d => d.Units.Count(u => u.Availability == UnitAvailability.Available))</strong></article>
+    <article><span class="metric-label">Closed today</span><strong>@Model.Cases.Count(c => c.Status == CaseStatus.Closed && DateOnly.FromDateTime(c.RecordedAt.LocalDateTime) == DateOnly.FromDateTime(DateTime.Today))</strong></article>
 </section>
 
 <section class="panel">
     <div class="panel-title">
-        <h2>Active cases</h2>
-        <span>Refresh page for latest update</span>
+        <div><p class="section-kicker">Live operations</p><h2>Active cases</h2></div>
+        <span>@activeCases.Length current</span>
     </div>
 
-    @if (!Model.Cases.Any(c => c.Status != CaseStatus.Closed))
+    @if (!activeCases.Any())
     {
-        <p class="empty">No active cases. Record an emergency to begin dispatch.</p>
+        <div class="empty-state"><h3>No active cases</h3><p>Record an emergency to create, prioritise, route, and dispatch a case.</p></div>
     }
     else
     {
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr>
-                        <th>Case</th><th>Priority</th><th>Incident</th><th>Location</th><th>Units</th><th>Status</th><th></th>
-                    </tr>
+                    <tr><th>Case ID</th><th>Incident</th><th>Location</th><th>Priority</th><th>Departments</th><th>Assigned units</th><th>Status</th></tr>
                 </thead>
                 <tbody>
-                    @foreach (var dispatchCase in Model.Cases.Where(c => c.Status != CaseStatus.Closed))
-                    {
-                        <tr>
-                            <td><strong>@dispatchCase.CaseNumber</strong><br /><small>@dispatchCase.CallerName</small></td>
-                            <td><span class="priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td>
-                            <td>@dispatchCase.IncidentType<br /><small>@dispatchCase.Description</small></td>
-                            <td>@dispatchCase.Location</td>
-                            <td>@(dispatchCase.AssignedUnits.Any() ? string.Join(", ", dispatchCase.AssignedUnits.Select(unit => unit.Identifier)) : "Awaiting unit")</td>
-                            <td><span class="status">@dispatchCase.Status</span></td>
-                            <td>
-                                <form method="post" asp-page-handler="Close">
-                                    <input type="hidden" name="caseId" value="@dispatchCase.Id" />
-                                    <button class="text-button">Close case</button>
-                                </form>
-                            </td>
-                        </tr>
-                    }
+                @foreach (var dispatchCase in activeCases)
+                {
+                    <tr class="@(dispatchCase.WaitingUnitTypes.Any() ? "waiting-row" : null)">
+                        <td><strong class="case-number">@dispatchCase.CaseNumber</strong><small>@dispatchCase.CallerName</small></td>
+                        <td><strong>@dispatchCase.IncidentType</strong><small class="truncate">@dispatchCase.Description</small></td>
+                        <td>@dispatchCase.Location</td>
+                        <td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td>
+                        <td><div class="tag-list">@foreach (var type in dispatchCase.RequiredUnitTypes) { <span class="department-tag">@type</span> }</div></td>
+                        <td>
+                            @if (dispatchCase.AssignedUnits.Any())
+                            {
+                                <strong>@string.Join(", ", dispatchCase.AssignedUnits.Select(unit => unit.Identifier))</strong>
+                            }
+                            else
+                            {
+                                <span class="muted">None active</span>
+                            }
+                            @if (dispatchCase.WaitingUnitTypes.Any())
+                            {
+                                <small class="waiting-label">Waiting: @string.Join(", ", dispatchCase.WaitingUnitTypes)</small>
+                            }
+                        </td>
+                        <td><span class="badge status @dispatchCase.Status.ToString().ToLowerInvariant()">@(dispatchCase.Status == CaseStatus.InProgress ? "In Progress" : dispatchCase.Status)</span></td>
+                    </tr>
+                }
                 </tbody>
             </table>
         </div>
@@ -64,18 +83,18 @@
 </section>
 
 <section class="panel">
-    <div class="panel-title"><h2>Assignment notifications</h2></div>
+    <div class="panel-title"><div><p class="section-kicker">System activity</p><h2>Latest assignment notifications</h2></div><span>Newest first</span></div>
     @if (!Model.Notifications.Any())
     {
-        <p class="empty">No assignments yet.</p>
+        <p class="empty">No unit assignments have been issued.</p>
     }
     else
     {
         <ul class="notifications">
-            @foreach (var notification in Model.Notifications)
-            {
-                <li><strong>@notification.UnitIdentifier</strong> · @notification.CaseNumber<br /><span>@notification.Message</span></li>
-            }
+        @foreach (var notification in Model.Notifications)
+        {
+            <li><div><strong>@notification.UnitIdentifier</strong><span class="department-tag">@notification.DepartmentType</span><span class="badge neutral">@notification.CaseNumber</span></div><p>@notification.Message</p><time>@notification.CreatedAt.LocalDateTime.ToString("dd MMM, HH:mm")</time></li>
+        }
         </ul>
     }
 </section>

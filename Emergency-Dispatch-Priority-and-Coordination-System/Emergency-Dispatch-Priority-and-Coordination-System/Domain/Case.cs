@@ -5,10 +5,23 @@ public enum Priority { Low, Medium, High }
 public enum Severity { Low, Medium, High }
 public enum ResponseUnitType { Medical, Police, Fire }
 
+public sealed class CaseAssignment
+{
+    internal CaseAssignment(Unit unit, DateTimeOffset assignedAt)
+        => (Unit, AssignedAt) = (unit, assignedAt);
+
+    public Unit Unit { get; }
+    public DateTimeOffset AssignedAt { get; }
+    public DateTimeOffset? SignedOffAt { get; private set; }
+    public bool IsActive => SignedOffAt is null;
+
+    internal void SignOff(DateTimeOffset signedOffAt) => SignedOffAt = signedOffAt;
+}
+
 /// <summary>Aggregate root for an emergency incident. State changes are kept here so they cannot drift across screens.</summary>
 public sealed class Case
 {
-    private readonly List<Unit> _assignedUnits = [];
+    private readonly List<CaseAssignment> _assignments = [];
 
     public Guid Id { get; } = Guid.NewGuid();
     public string CaseNumber => $"CASE-{Id.ToString()[..8].ToUpperInvariant()}";
@@ -22,7 +35,9 @@ public sealed class Case
     public Priority Priority { get; private set; }
     public CaseStatus Status { get; private set; } = CaseStatus.Open;
     public IReadOnlyCollection<ResponseUnitType> RequiredUnitTypes { get; }
-    public IReadOnlyCollection<Unit> AssignedUnits => _assignedUnits.AsReadOnly();
+    public IReadOnlyCollection<CaseAssignment> Assignments => _assignments.AsReadOnly();
+    public IReadOnlyCollection<Unit> AssignedUnits => _assignments.Where(a => a.IsActive).Select(a => a.Unit).ToArray();
+    public IReadOnlyCollection<ResponseUnitType> WaitingUnitTypes => RequiredUnitTypes.Where(IsWaitingFor).ToArray();
 
     public Case(string callerName, string callerPhone, string incidentType, string description,
         string location, Severity severity, IEnumerable<ResponseUnitType> requiredUnitTypes,
@@ -45,18 +60,51 @@ public sealed class Case
     public bool Assign(Unit unit)
     {
         ArgumentNullException.ThrowIfNull(unit);
-        if (Status == CaseStatus.Closed || _assignedUnits.Contains(unit) || !unit.TryAssign(this)) return false;
-        _assignedUnits.Add(unit);
+        if (Status == CaseStatus.Closed || !RequiredUnitTypes.Contains(unit.Type) ||
+            _assignments.Any(a => a.Unit.Type == unit.Type) || !unit.TryAssign(this)) return false;
+        _assignments.Add(new CaseAssignment(unit, DateTimeOffset.UtcNow));
         Status = CaseStatus.InProgress;
         return true;
     }
 
-    public void Close()
+    public bool SignOff(Guid unitId)
     {
-        if (Status == CaseStatus.Closed) return;
-        foreach (var unit in _assignedUnits) unit.Release();
-        _assignedUnits.Clear();
-        Status = CaseStatus.Closed;
+        var assignment = _assignments.SingleOrDefault(a => a.IsActive && a.Unit.Id == unitId);
+        if (assignment is null) return false;
+
+        assignment.SignOff(DateTimeOffset.UtcNow);
+        assignment.Unit.Release();
+        UpdateStatus();
+        return true;
+    }
+
+    public bool Unassign(Guid unitId)
+    {
+        var assignment = _assignments.SingleOrDefault(a => a.IsActive && a.Unit.Id == unitId);
+        if (assignment is null) return false;
+
+        assignment.Unit.Release();
+        _assignments.Remove(assignment);
+        UpdateStatus();
+        return true;
+    }
+
+    public bool IsWaitingFor(ResponseUnitType type) =>
+        Status != CaseStatus.Closed && RequiredUnitTypes.Contains(type) &&
+        !_assignments.Any(a => a.Unit.Type == type);
+
+    private void UpdateStatus()
+    {
+        if (_assignments.Any(a => a.IsActive))
+        {
+            Status = CaseStatus.InProgress;
+            return;
+        }
+
+        Status = RequiredUnitTypes.All(type =>
+            _assignments.Any(a => a.Unit.Type == type && a.SignedOffAt.HasValue))
+            ? CaseStatus.Closed
+            : CaseStatus.Open;
     }
 
     private static string Require(string value, string name) =>

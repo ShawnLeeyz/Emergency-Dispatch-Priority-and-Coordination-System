@@ -3,22 +3,51 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>@ViewData["Title"] · Emergency Dispatch</title>
-    <link rel="stylesheet" href="~/css/site.css" />
+    <title>@ViewData["Title"] | Emergency Dispatch</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
-    <header>
-        <a class="brand" asp-page="/Index">Emergency<span>Dispatch</span></a>
-        <nav>
-            <a asp-page="/Index">Live dashboard</a>
-            <a asp-page="/Cases/Create">New emergency</a>
-            <a asp-page="/Units">Units</a>
-            <a asp-page="/History">History</a>
-        </nav>
+    <header class="app-header">
+        <div class="header-inner">
+            <a class="brand" asp-page="/Index" aria-label="Emergency Dispatch home"><span class="brand-mark">ED</span><span>Emergency Dispatch<small>Priority &amp; Coordination</small></span></a>
+            <nav class="primary-nav" aria-label="Primary navigation">
+                <a asp-page="/Index">Dashboard</a>
+                <a asp-page="/Cases/Create">Record emergency</a>
+                <a asp-page="/Units">Units</a>
+                <a asp-page="/History">History</a>
+            </nav>
+        </div>
+        <div class="department-bar">
+            <div><span>Department views</span><a asp-page="/Departments/Dashboard" asp-route-department="Medical">Medical</a><a asp-page="/Departments/Dashboard" asp-route-department="Police">Police</a><a asp-page="/Departments/Dashboard" asp-route-department="Fire">Fire</a></div>
+        </div>
     </header>
 
-    <main>
+    <main id="main-content">
+        @if (TempData["Success"] is string success)
+        {
+            <div class="alert alert-success" role="status"><strong>Updated.</strong> @success</div>
+        }
+        @if (TempData["Error"] is string error)
+        {
+            <div class="alert alert-error" role="alert"><strong>Action not completed.</strong> @error</div>
+        }
         @RenderBody()
     </main>
+
+    <footer><span>Emergency Dispatch prototype</span><span>In-memory demonstration environment</span></footer>
+
+    @if (ViewData["AutoRefresh"] as bool? == true)
+    {
+        <script>
+            document.querySelectorAll("form").forEach(function (form) {
+                form.addEventListener("input", function () { form.dataset.dirty = "true"; });
+            });
+            window.setInterval(function () {
+                if (document.visibilityState === "visible" && !document.querySelector("form[data-dirty='true']")) {
+                    window.location.reload();
+                }
+            }, 5000);
+        </script>
+    }
 </body>
 </html>

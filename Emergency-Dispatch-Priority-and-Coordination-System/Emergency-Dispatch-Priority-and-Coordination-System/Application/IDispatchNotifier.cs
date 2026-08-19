@@ -8,4 +8,5 @@ public interface IDispatchNotifier
     IReadOnlyCollection<DispatchNotification> GetAll();
 }
 
-public sealed record DispatchNotification(DateTimeOffset CreatedAt, string UnitIdentifier, string CaseNumber, string Message);
+public sealed record DispatchNotification(DateTimeOffset CreatedAt, string UnitIdentifier, ResponseUnitType DepartmentType,
+    string CaseNumber, string IncidentType, string Location, string Message);

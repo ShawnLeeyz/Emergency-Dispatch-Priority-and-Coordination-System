@@ -20,30 +20,57 @@ public sealed class DispatchService
         var dispatchCase = new Case(request.CallerName, request.CallerPhone, request.IncidentType,
             request.Description, request.Location, request.Severity, request.RequiredUnitTypes);
         dispatchCase.SetPriority(_priorityStrategy.Calculate(dispatchCase));
-        _cases.Add(dispatchCase);
-        AssignAvailableUnits(dispatchCase);
+        lock (_dispatchLock)
+        {
+            _cases.Add(dispatchCase);
+            AssignAvailableUnits(dispatchCase);
+        }
         return dispatchCase;
     }
 
-    public void CloseCase(Guid caseId)
+    public void SignOffUnit(Guid caseId, Guid unitId, ResponseUnitType departmentType)
     {
         lock (_dispatchLock)
         {
             var dispatchCase = _cases.Get(caseId) ?? throw new KeyNotFoundException("The selected case no longer exists.");
-            dispatchCase.Close();
+            var unit = dispatchCase.AssignedUnits.SingleOrDefault(candidate => candidate.Id == unitId)
+                ?? throw new InvalidOperationException("That unit is not actively assigned to this case.");
+            if (unit.Type != departmentType)
+                throw new InvalidOperationException("That unit is managed by a different department.");
+            dispatchCase.SignOff(unitId);
+            AssignNextWaitingCase(unit);
+        }
+    }
+
+    public void UpdateUnit(ResponseUnitType departmentType, Guid unitId, string location, int personnelCount)
+    {
+        lock (_dispatchLock)
+        {
+            var unit = _departments.Get(departmentType)?.Units.SingleOrDefault(candidate => candidate.Id == unitId)
+                ?? throw new KeyNotFoundException("The selected response unit could not be found in that department.");
+            unit.UpdateDetails(location, personnelCount);
         }
     }
 
     private void AssignAvailableUnits(Case dispatchCase)
     {
-        lock (_dispatchLock)
+        foreach (var responseType in dispatchCase.WaitingUnitTypes)
         {
-            foreach (var responseType in dispatchCase.RequiredUnitTypes)
-            {
-                var unit = _departments.Get(responseType)?.Units.FirstOrDefault(candidate => candidate.Availability == UnitAvailability.Available);
-                if (unit is not null && dispatchCase.Assign(unit)) _notifier.Notify(unit, dispatchCase);
-            }
+            var unit = _departments.Get(responseType)?.Units.FirstOrDefault(candidate => candidate.Availability == UnitAvailability.Available);
+            if (unit is not null && dispatchCase.Assign(unit)) _notifier.Notify(unit, dispatchCase);
         }
+    }
+
+    private void AssignNextWaitingCase(Unit availableUnit)
+    {
+        var waitingCase = _cases.GetAll()
+            .Where(dispatchCase => dispatchCase.IsWaitingFor(availableUnit.Type))
+            .OrderBy(dispatchCase => dispatchCase.RecordedAt)
+            .ThenBy(dispatchCase => dispatchCase.Id)
+            .FirstOrDefault();
+
+        if (waitingCase is not null && waitingCase.Assign(availableUnit))
+            _notifier.Notify(availableUnit, waitingCase);
     }
 }
 

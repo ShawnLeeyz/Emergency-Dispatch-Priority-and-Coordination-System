@@ -5,68 +5,77 @@
     ViewData["Title"] = "Record emergency";
 }
 
-<section class="page-heading">
+<section class="page-heading form-heading">
     <div>
-        <p class="eyebrow">FR-01 · FR-06</p>
-        <h1>Record an emergency</h1>
-        <p>Submitting creates the case, calculates priority, routes it, and attempts unit assignment.</p>
+        <p class="eyebrow">Emergency intake</p>
+        <h1>Record emergency call</h1>
+        <p>Enter the caller and incident details. Submission creates the case, determines prototype priority, routes departments, and attempts assignment.</p>
     </div>
+    <a class="button button-secondary" asp-page="/Index">Cancel</a>
 </section>
 
-<form method="post" class="form-card" novalidate>
-    <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+<form method="post" class="intake-form" novalidate>
+    <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
 
-    <div class="form-grid">
-        <div class="form-field">
-            <label asp-for="Input.CallerName"></label>
-            <input asp-for="Input.CallerName" autocomplete="name" />
-            <span asp-validation-for="Input.CallerName" class="field-validation"></span>
+    <section class="form-section">
+        <div class="form-section-heading"><span>01</span><div><h2>Caller information</h2><p>Details for the person reporting the emergency.</p></div></div>
+        <div class="form-grid">
+            <div class="form-field">
+                <label asp-for="Input.CallerName"></label>
+                <input asp-for="Input.CallerName" autocomplete="name" placeholder="Full name" />
+                <span asp-validation-for="Input.CallerName" class="field-validation"></span>
+            </div>
+            <div class="form-field">
+                <label asp-for="Input.CallerPhone"></label>
+                <input asp-for="Input.CallerPhone" autocomplete="tel" inputmode="tel" placeholder="Phone number" />
+                <span asp-validation-for="Input.CallerPhone" class="field-validation"></span>
+            </div>
         </div>
+    </section>
 
-        <div class="form-field">
-            <label asp-for="Input.CallerPhone"></label>
-            <input asp-for="Input.CallerPhone" autocomplete="tel" />
-            <span asp-validation-for="Input.CallerPhone" class="field-validation"></span>
+    <section class="form-section">
+        <div class="form-section-heading"><span>02</span><div><h2>Incident details</h2><p>Record what is happening and where responders are needed.</p></div></div>
+        <div class="form-grid">
+            <div class="form-field">
+                <label asp-for="Input.IncidentType"></label>
+                <input asp-for="Input.IncidentType" placeholder="e.g. vehicle collision" />
+                <span asp-validation-for="Input.IncidentType" class="field-validation"></span>
+            </div>
+            <div class="form-field">
+                <label asp-for="Input.Location"></label>
+                <input asp-for="Input.Location" autocomplete="street-address" placeholder="Street address or clear location" />
+                <span asp-validation-for="Input.Location" class="field-validation"></span>
+            </div>
         </div>
-
         <div class="form-field">
-            <label asp-for="Input.IncidentType"></label>
-            <input asp-for="Input.IncidentType" placeholder="e.g. vehicle collision" />
-            <span asp-validation-for="Input.IncidentType" class="field-validation"></span>
+            <label asp-for="Input.Description"></label>
+            <textarea asp-for="Input.Description" rows="7" placeholder="Describe the situation, hazards, people involved, and relevant observations."></textarea>
+            <div class="field-meta"><span asp-validation-for="Input.Description" class="field-validation"></span><small>Maximum 1,000 characters</small></div>
         </div>
-
-        <div class="form-field">
-            <label asp-for="Input.Location"></label>
-            <input asp-for="Input.Location" autocomplete="street-address" />
-            <span asp-validation-for="Input.Location" class="field-validation"></span>
-        </div>
-
-        <div class="form-field">
-            <label asp-for="Input.Severity"></label>
+        <div class="form-field severity-field">
+            <label asp-for="Input.Severity">Initial severity assessment</label>
             <select asp-for="Input.Severity" asp-items="Html.GetEnumSelectList<Severity>()"></select>
+            <small>Prototype input used by the isolated generic priority policy when no keyword rule matches.</small>
             <span asp-validation-for="Input.Severity" class="field-validation"></span>
         </div>
-    </div>
+    </section>
 
-    <div class="form-field">
-        <label asp-for="Input.Description"></label>
-        <textarea asp-for="Input.Description" rows="5"></textarea>
-        <span asp-validation-for="Input.Description" class="field-validation"></span>
-    </div>
-
-    <fieldset class="response-types">
-        <legend>Required response departments</legend>
-        <div class="response-type-options">
+    <section class="form-section">
+        <div class="form-section-heading"><span>03</span><div><h2>Required response</h2><p>Select every department required at the scene.</p></div></div>
+        <fieldset class="response-types">
+            <legend class="visually-hidden">Required response departments</legend>
+            <div class="response-type-options">
             @foreach (var type in Enum.GetValues<ResponseUnitType>())
             {
                 <label class="response-type-option">
-                    <input type="checkbox" name="Input.RequiredUnitTypes" value="@type" />
-                    <span>@type</span>
+                    <input type="checkbox" name="Input.RequiredUnitTypes" value="@type" checked="@(Model.Input.RequiredUnitTypes.Contains(type) ? "checked" : null)" />
+                    <span><strong>@type</strong><small>@(type == ResponseUnitType.Medical ? "Ambulance and clinical response" : type == ResponseUnitType.Police ? "Police response and scene safety" : "Fire and rescue response")</small></span>
                 </label>
             }
-        </div>
-        <span asp-validation-for="Input.RequiredUnitTypes" class="field-validation"></span>
-    </fieldset>
+            </div>
+            <span asp-validation-for="Input.RequiredUnitTypes" class="field-validation"></span>
+        </fieldset>
+    </section>
 
-    <button class="button" type="submit">Create and dispatch case</button>
+    <div class="form-actions"><a class="button button-secondary" asp-page="/Index">Cancel</a><button class="button" type="submit">Create and dispatch case</button></div>
 </form>

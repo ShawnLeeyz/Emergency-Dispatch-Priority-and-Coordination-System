@@ -10,7 +10,16 @@ public sealed class InMemoryCaseRepository : ICaseRepository
     public void Add(Case dispatchCase) => _cases.TryAdd(dispatchCase.Id, dispatchCase);
     public Case? Get(Guid id) => _cases.GetValueOrDefault(id);
     public IReadOnlyCollection<Case> GetAll() => _cases.Values.OrderByDescending(c => c.RecordedAt).ToArray();
-    public IReadOnlyCollection<Case> Search(string? term, DateOnly? date) => GetAll().Where(c =>
-        (string.IsNullOrWhiteSpace(term) || c.CaseNumber.Contains(term, StringComparison.OrdinalIgnoreCase) || c.CallerName.Contains(term, StringComparison.OrdinalIgnoreCase)) &&
-        (!date.HasValue || DateOnly.FromDateTime(c.RecordedAt.LocalDateTime) == date)).ToArray();
+    public IReadOnlyCollection<Case> Search(string? callerName, string? caseId, DateOnly? date)
+    {
+        var hasCaller = !string.IsNullOrWhiteSpace(callerName);
+        var hasCaseId = !string.IsNullOrWhiteSpace(caseId);
+        var hasDate = date.HasValue;
+        if (!hasCaller && !hasCaseId && !hasDate) return GetAll();
+
+        return GetAll().Where(dispatchCase =>
+            (hasCaller && dispatchCase.CallerName.Contains(callerName!, StringComparison.OrdinalIgnoreCase)) ||
+            (hasCaseId && dispatchCase.CaseNumber.Contains(caseId!, StringComparison.OrdinalIgnoreCase)) ||
+            (hasDate && DateOnly.FromDateTime(dispatchCase.RecordedAt.LocalDateTime) == date)).ToArray();
+    }
 }
