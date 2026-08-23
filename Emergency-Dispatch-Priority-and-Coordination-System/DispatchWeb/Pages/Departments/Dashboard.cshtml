@@ -10,7 +10,7 @@
     <div>
         <p class="eyebrow">Department operations</p>
         <h1>@Model.Department.Name dashboard</h1>
-        <p>Cases routed to @Model.Department.Name.ToLowerInvariant(), unit assignments, waiting work, and response sign-off.</p>
+        <p>Cases routed to @Model.Department.Name.ToLowerInvariant(), waiting work, assignments, and unit coverage.</p>
     </div>
     <div class="heading-actions">
         <span class="live-indicator"><span></span> Updates every 5 seconds</span>
@@ -39,7 +39,7 @@
     {
         <div class="table-wrap">
             <table>
-                <thead><tr><th>Case ID</th><th>Incident</th><th>Location</th><th>Priority</th><th>Department unit</th><th>Status</th><th>Response</th></tr></thead>
+                <thead><tr><th>Case ID</th><th>Incident</th><th>Location</th><th>Priority</th><th>Department unit</th><th>Status</th></tr></thead>
                 <tbody>
                 @foreach (var dispatchCase in Model.Cases)
                 {
@@ -56,17 +56,6 @@
                             else { <span class="waiting-label">Waiting for unit</span><small>Queued for @Model.Department.Name</small> }
                         </td>
                         <td><span class="badge status @dispatchCase.Status.ToString().ToLowerInvariant()">@(dispatchCase.Status == CaseStatus.InProgress ? "In Progress" : dispatchCase.Status)</span></td>
-                        <td>
-                            @if (activeUnit is not null)
-                            {
-                                <form method="post" asp-page-handler="SignOff" asp-route-department="@Model.DepartmentType">
-                                    <input type="hidden" name="caseId" value="@dispatchCase.Id" />
-                                    <input type="hidden" name="unitId" value="@activeUnit.Id" />
-                                    <button class="button button-compact" type="submit">Sign off</button>
-                                </form>
-                            }
-                            else { <span class="muted">No action</span> }
-                        </td>
                     </tr>
                 }
                 </tbody>

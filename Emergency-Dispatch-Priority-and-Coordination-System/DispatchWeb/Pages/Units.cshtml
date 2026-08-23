@@ -11,10 +11,10 @@
     <span class="live-indicator"><span></span> Updates every 5 seconds</span>
 </section>
 
-<nav class="tabs" aria-label="Filter units by department">
-    <a class="@(!Model.Department.HasValue ? "active" : null)" asp-page="/Units">All units</a>
-    @foreach (var type in Enum.GetValues<ResponseUnitType>()) { <a class="@(Model.Department == type ? "active" : null)" asp-page="/Units" asp-route-department="@type">@type</a> }
-</nav>
+@if (User.IsAdmin())
+{
+    <nav class="tabs" aria-label="Filter units by department"><a class="@(!Model.Department.HasValue ? "active" : null)" asp-page="/Units">All units</a>@foreach (var type in Enum.GetValues<ResponseUnitType>()) { <a class="@(Model.Department == type ? "active" : null)" asp-page="/Units" asp-route-department="@type">@type</a> }</nav>
+}
 
 <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
 

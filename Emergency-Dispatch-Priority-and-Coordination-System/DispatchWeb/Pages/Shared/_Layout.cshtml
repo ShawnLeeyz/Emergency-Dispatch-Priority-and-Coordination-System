@@ -9,16 +9,27 @@
 <body>
     <header class="app-header">
         <div class="header-inner">
-            <a class="brand" asp-page="/Index" aria-label="Emergency Dispatch home"><span class="brand-mark">ED</span><span>Emergency Dispatch<small>Priority &amp; Coordination</small></span></a>
+            @{ var home = User.IsInRole(DemoRoles.Admin) ? "/Admin" : User.IsInRole(DemoRoles.Department) ? $"/Departments/{User.Scope()}" : User.IsInRole(DemoRoles.ResponseUnit) ? $"/ResponseUnits/{User.Scope()}" : "/"; }
+            <a class="brand" href="@home" aria-label="Emergency Dispatch home"><span class="brand-mark">ED</span><span>Emergency Dispatch<small>Priority &amp; Coordination</small></span></a>
             <nav class="primary-nav" aria-label="Primary navigation">
-                <a asp-page="/Index">Dashboard</a>
-                <a asp-page="/Cases/Create">Record emergency</a>
-                <a asp-page="/Units">Units</a>
-                <a asp-page="/History">History</a>
+                @if (User.IsInRole(DemoRoles.Dispatcher))
+                {
+                    <a asp-page="/Index">Dashboard</a><a asp-page="/Cases/Create">Record emergency</a><a asp-page="/History">History</a>
+                }
+                else if (User.IsInRole(DemoRoles.Department))
+                {
+                    <a asp-page="/Departments/Dashboard" asp-route-department="@User.Scope()">Dashboard</a><a asp-page="/Units" asp-route-department="@User.Scope()">Units</a>
+                }
+                else if (User.IsInRole(DemoRoles.ResponseUnit))
+                {
+                    <a asp-page="/ResponseUnits/Index" asp-route-unit="@User.Scope()">My assignment</a>
+                }
+                else if (User.IsInRole(DemoRoles.Admin))
+                {
+                    <a asp-page="/Admin/Index">Admin home</a><a asp-page="/Index">Dispatcher</a><a asp-page="/Units">Units</a><a asp-page="/History">History</a>
+                }
             </nav>
-        </div>
-        <div class="department-bar">
-            <div><span>Department views</span><a asp-page="/Departments/Dashboard" asp-route-department="Medical">Medical</a><a asp-page="/Departments/Dashboard" asp-route-department="Police">Police</a><a asp-page="/Departments/Dashboard" asp-route-department="Fire">Fire</a></div>
+            <div class="user-menu"><div><strong>@User.DisplayName()</strong><span>@User.Role()@(string.IsNullOrWhiteSpace(User.Scope()) ? "" : $" - {User.Scope()}")</span></div><form method="post" asp-page="/Account/Logout"><button type="submit">Log out</button></form></div>
         </div>
     </header>
 
@@ -34,7 +45,7 @@
         @RenderBody()
     </main>
 
-    <footer><span>Emergency Dispatch prototype</span><span>In-memory demonstration environment</span></footer>
+    <footer><span>Emergency Dispatch prototype</span><span>Role-based demonstration environment</span></footer>
 
     @if (ViewData["AutoRefresh"] as bool? == true)
     {

@@ -8,8 +8,7 @@ namespace DispatchWeb.Pages.Departments;
 public sealed class DashboardModel(
     ICaseRepository cases,
     IDepartmentRepository departments,
-    IDispatchNotifier notifier,
-    DispatchService dispatchService) : PageModel
+    IDispatchNotifier notifier) : PageModel
 {
     public ResponseUnitType DepartmentType { get; private set; }
     public Department Department { get; private set; } = null!;
@@ -20,23 +19,6 @@ public sealed class DashboardModel(
     {
         if (!TryLoad(department)) return NotFound();
         return Page();
-    }
-
-    public IActionResult OnPostSignOff(string department, Guid caseId, Guid unitId)
-    {
-        if (!Enum.TryParse<ResponseUnitType>(department, true, out var departmentType)) return NotFound();
-
-        try
-        {
-            dispatchService.SignOffUnit(caseId, unitId, departmentType);
-            TempData["Success"] = "Unit signed off. Availability and case status were updated automatically.";
-        }
-        catch (Exception exception) when (exception is KeyNotFoundException or InvalidOperationException)
-        {
-            TempData["Error"] = exception.Message;
-        }
-
-        return RedirectToPage(new { department = departmentType });
     }
 
     private bool TryLoad(string department)
