@@ -1,0 +1,37 @@
+@page "/Admin"
+@model DispatchWeb.Pages.Admin.IndexModel
+@{ ViewData["Title"] = "Admin"; }
+
+<header class="page-heading">
+    <div><p class="eyebrow">Prototype administration</p><h1>Admin</h1><p>Access every system area for demonstration and support.</p></div>
+    <span class="role-chip admin">Prototype-only access</span>
+</header>
+
+<div class="admin-directory">
+    <section class="directory-section">
+        <div class="section-heading"><div><h2>Dispatcher</h2><p>Monitor cases, record emergencies, and search history.</p></div></div>
+        <div class="directory-links">
+            <a asp-page="/Index"><strong>Dashboard</strong><span>Current cases and response progress</span></a>
+            <a asp-page="/Cases/Create"><strong>Record Emergency</strong><span>Create and dispatch a case</span></a>
+            <a asp-page="/History"><strong>Case History</strong><span>Search operational records</span></a>
+        </div>
+    </section>
+    <section class="directory-section">
+        <div class="section-heading"><div><h2>Departments</h2><p>Open a department's current workload and unit coverage.</p></div></div>
+        <div class="directory-links">
+            <a asp-page="/Departments/Dashboard" asp-route-department="Medical"><strong>Medical</strong><span>Cases and ambulance units</span></a>
+            <a asp-page="/Departments/Dashboard" asp-route-department="Police"><strong>Police</strong><span>Cases and police units</span></a>
+            <a asp-page="/Departments/Dashboard" asp-route-department="Fire"><strong>Fire</strong><span>Cases and fire units</span></a>
+            <a asp-page="/Units"><strong>All Response Units</strong><span>Review and update unit details</span></a>
+        </div>
+    </section>
+    <section class="directory-section">
+        <div class="section-heading"><div><h2>Response units</h2><p>Inspect the assignment workspace for a specific unit.</p></div></div>
+        <div class="unit-directory">
+            @foreach (var group in Model.Accounts.Where(a => a.Role == DemoRoles.ResponseUnit).GroupBy(a => a.Scope![..3]))
+            {
+                <div><h3>@(group.Key == "MED" ? "Medical" : group.Key == "POL" ? "Police" : "Fire")</h3><div>@foreach (var account in group) { <a asp-page="/ResponseUnits/Index" asp-route-unit="@account.Scope">@account.Scope</a> }</div></div>
+            }
+        </div>
+    </section>
+</div>

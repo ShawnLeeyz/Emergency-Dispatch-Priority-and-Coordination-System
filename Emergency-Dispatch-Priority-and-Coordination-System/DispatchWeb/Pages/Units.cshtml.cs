@@ -3,6 +3,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using DispatchWeb.Authentication;
 namespace DispatchWeb.Pages;
 
 public sealed class UnitsModel(IDepartmentRepository departments, DispatchService dispatchService) : PageModel
@@ -15,10 +16,17 @@ public sealed class UnitsModel(IDepartmentRepository departments, DispatchServic
 
     public IReadOnlyCollection<Department> Departments { get; private set; } = [];
 
-    public void OnGet() => LoadDepartments();
+    public IActionResult OnGet()
+    {
+        if (!ApplyScope()) return RedirectToPage("/Account/AccessDenied");
+        LoadDepartments();
+        return Page();
+    }
 
     public IActionResult OnPostUpdate()
     {
+        if (!User.IsAdmin() && (!User.IsInRole(DemoRoles.Department) || !string.Equals(User.Scope(), Input.Department.ToString(), StringComparison.OrdinalIgnoreCase)))
+            return RedirectToPage("/Account/AccessDenied");
         Department = Input.Department;
         if (!ModelState.IsValid)
         {
@@ -44,6 +52,15 @@ public sealed class UnitsModel(IDepartmentRepository departments, DispatchServic
     {
         var all = departments.GetAll();
         Departments = Department.HasValue ? all.Where(d => d.Type == Department).ToArray() : all;
+    }
+
+    private bool ApplyScope()
+    {
+        if (User.IsAdmin()) return true;
+        if (!User.IsInRole(DemoRoles.Department) || !Enum.TryParse<ResponseUnitType>(User.Scope(), true, out var type)) return false;
+        if (Department.HasValue && Department != type) return false;
+        Department = type;
+        return true;
     }
 
     public sealed class UnitInput

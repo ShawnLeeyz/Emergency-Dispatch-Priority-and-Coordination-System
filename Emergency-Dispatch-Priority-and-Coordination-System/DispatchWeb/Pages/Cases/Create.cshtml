@@ -8,8 +8,8 @@
 <section class="page-heading form-heading">
     <div>
         <p class="eyebrow">Emergency intake</p>
-        <h1>Record emergency call</h1>
-        <p>Enter the caller and incident details. Submission creates the case, determines prototype priority, routes departments, and attempts assignment.</p>
+        <h1>Record Emergency</h1>
+        <p>Enter the emergency details below. Complete every required field before creating the case.</p>
     </div>
     <a class="button button-secondary" asp-page="/Index">Cancel</a>
 </section>
@@ -18,7 +18,7 @@
     <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
 
     <section class="form-section">
-        <div class="form-section-heading"><span>01</span><div><h2>Caller information</h2><p>Details for the person reporting the emergency.</p></div></div>
+        <div class="form-section-heading"><span>01</span><div><h2>Caller</h2><p>Person reporting the emergency.</p></div></div>
         <div class="form-grid">
             <div class="form-field">
                 <label asp-for="Input.CallerName"></label>
@@ -34,7 +34,7 @@
     </section>
 
     <section class="form-section">
-        <div class="form-section-heading"><span>02</span><div><h2>Incident details</h2><p>Record what is happening and where responders are needed.</p></div></div>
+        <div class="form-section-heading"><span>02</span><div><h2>Incident</h2><p>What is happening and where help is required.</p></div></div>
         <div class="form-grid">
             <div class="form-field">
                 <label asp-for="Input.IncidentType"></label>
@@ -61,7 +61,7 @@
     </section>
 
     <section class="form-section">
-        <div class="form-section-heading"><span>03</span><div><h2>Required response</h2><p>Select every department required at the scene.</p></div></div>
+        <div class="form-section-heading"><span>03</span><div><h2>Response Required</h2><p>Select every department needed at the scene.</p></div></div>
         <fieldset class="response-types">
             <legend class="visually-hidden">Required response departments</legend>
             <div class="response-type-options">
@@ -77,5 +77,5 @@
         </fieldset>
     </section>
 
-    <div class="form-actions"><a class="button button-secondary" asp-page="/Index">Cancel</a><button class="button" type="submit">Create and dispatch case</button></div>
+    <div class="form-actions"><a class="button button-secondary" asp-page="/Index">Cancel</a><button class="button" type="submit">Create Case</button></div>
 </form>

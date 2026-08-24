@@ -6,40 +6,26 @@
     var hasSearch = !string.IsNullOrWhiteSpace(Model.CallerName) || !string.IsNullOrWhiteSpace(Model.CaseId) || Model.Date.HasValue;
 }
 
-<section class="page-heading">
-    <div><p class="eyebrow">Dispatch records</p><h1>Case history</h1><p>Find active or closed cases using any one of the available fields.</p></div>
-</section>
+<header class="page-heading"><div><p class="eyebrow">Dispatcher records</p><h1>Case History</h1><p>Search previous emergency cases by caller, case ID, or date.</p></div></header>
 
-<section class="panel search-panel">
-    <div class="panel-title"><div><p class="section-kicker">OR search</p><h2>Search case records</h2></div><span>A match in any entered field is returned</span></div>
+<section class="search-section">
     <form method="get" class="search-form">
         <div class="form-field"><label asp-for="CallerName">Caller name</label><input asp-for="CallerName" placeholder="e.g. Alex Morgan" /></div>
         <div class="form-field"><label asp-for="CaseId">Case ID</label><input asp-for="CaseId" placeholder="CASE-1234ABCD" /></div>
         <div class="form-field"><label asp-for="Date">Recorded date</label><input asp-for="Date" type="date" /></div>
-        <div class="search-actions"><button class="button" type="submit">Search history</button>@if (hasSearch) { <a class="button button-secondary" asp-page="/History">Clear</a> }</div>
+        <div class="search-actions"><button class="button" type="submit">Search</button>@if (hasSearch) { <a class="button button-secondary" asp-page="/History">Clear</a> }</div>
     </form>
+    <p class="form-note">A case is returned when any entered field matches.</p>
 </section>
 
-<section class="panel">
-    <div class="panel-title"><div><p class="section-kicker">Results</p><h2>@(hasSearch ? "Matching cases" : "All cases")</h2></div><span>@Model.Cases.Count found</span></div>
-    <div class="table-wrap">
-        <table>
-            <thead><tr><th>Case ID</th><th>Caller</th><th>Incident</th><th>Recorded</th><th>Priority</th><th>Departments</th><th>Status</th></tr></thead>
-            <tbody>
-            @if (!Model.Cases.Any()) { <tr><td colspan="7" class="empty">No matching case records.</td></tr> }
-            @foreach (var dispatchCase in Model.Cases)
-            {
-                <tr>
-                    <td><strong class="case-number">@dispatchCase.CaseNumber</strong></td>
-                    <td><strong>@dispatchCase.CallerName</strong><small>@dispatchCase.CallerPhone</small></td>
-                    <td>@dispatchCase.IncidentType<small>@dispatchCase.Location</small></td>
-                    <td>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM yyyy")<small>@dispatchCase.RecordedAt.LocalDateTime.ToString("HH:mm")</small></td>
-                    <td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td>
-                    <td>@string.Join(", ", dispatchCase.RequiredUnitTypes)</td>
-                    <td><span class="badge status @dispatchCase.Status.ToString().ToLowerInvariant()">@(dispatchCase.Status == CaseStatus.InProgress ? "In Progress" : dispatchCase.Status)</span></td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    </div>
+<section class="work-section">
+    <div class="section-heading"><div><h2>@(hasSearch ? "Search results" : "All cases")</h2><p>@(hasSearch ? "Cases matching at least one search field." : "Current and completed emergency records.")</p></div><strong>@Model.Cases.Count found</strong></div>
+    @if (!Model.Cases.Any())
+    {
+        <div class="empty-state"><h3>No matching cases</h3><p>Check the search details or clear the fields to view all records.</p></div>
+    }
+    else
+    {
+        <div class="table-wrap"><table class="case-table"><thead><tr><th>Case</th><th>Recorded</th><th>Caller</th><th>Incident and location</th><th>Priority</th><th>Status</th></tr></thead><tbody>@foreach (var dispatchCase in Model.Cases) { <tr><td><strong class="case-number">@dispatchCase.CaseNumber</strong><small>@string.Join(", ", dispatchCase.RequiredUnitTypes)</small></td><td>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM yyyy")<small>@dispatchCase.RecordedAt.LocalDateTime.ToString("HH:mm")</small></td><td><strong>@dispatchCase.CallerName</strong><small>@dispatchCase.CallerPhone</small></td><td><strong>@dispatchCase.IncidentType</strong><small>@dispatchCase.Location</small></td><td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td><td><span class="badge status @dispatchCase.Status.ToString().ToLowerInvariant()">@(dispatchCase.Status == CaseStatus.InProgress ? "In Progress" : dispatchCase.Status)</span></td></tr> }</tbody></table></div>
+    }
 </section>

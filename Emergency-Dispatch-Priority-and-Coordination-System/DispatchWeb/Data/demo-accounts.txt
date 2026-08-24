@@ -1,0 +1,19 @@
+# PROTOTYPE-ONLY university demonstration accounts.
+# Plaintext fake credentials are intentional for this prototype and must never be used for real users.
+# Production systems require a proper identity provider and securely hashed credentials.
+# Format: username|password|display name|role|scope
+dispatch01|dispatch-demo|Alex Dispatcher|Dispatcher|
+dispatch02|dispatch-demo|Morgan Dispatcher|Dispatcher|
+medical01|department-demo|Jamie Medical Coordinator|Department|Medical
+medical02|department-demo|Taylor Medical Coordinator|Department|Medical
+police01|department-demo|Casey Police Coordinator|Department|Police
+police02|department-demo|Jordan Police Coordinator|Department|Police
+fire01|department-demo|Riley Fire Coordinator|Department|Fire
+fire02|department-demo|Avery Fire Coordinator|Department|Fire
+med01|unit-demo|MED-01 Crew|ResponseUnit|MED-01
+med02|unit-demo|MED-02 Crew|ResponseUnit|MED-02
+pol01|unit-demo|POL-01 Crew|ResponseUnit|POL-01
+pol02|unit-demo|POL-02 Crew|ResponseUnit|POL-02
+fir01|unit-demo|FIR-01 Crew|ResponseUnit|FIR-01
+fir02|unit-demo|FIR-02 Crew|ResponseUnit|FIR-02
+admin|admin-demo|Prototype Administrator|Admin|

@@ -2,92 +2,56 @@
 @model DispatchWeb.Pages.Departments.DashboardModel
 
 @{
-    ViewData["Title"] = $"{Model.Department.Name} operations";
+    ViewData["Title"] = $"{Model.Department.Name} dashboard";
     ViewData["AutoRefresh"] = true;
+    var waitingCases = Model.Cases.Where(c => c.IsWaitingFor(Model.DepartmentType)).ToArray();
+    var coveredCases = Model.Cases.Where(c => !c.IsWaitingFor(Model.DepartmentType)).ToArray();
 }
 
-<section class="page-heading">
-    <div>
-        <p class="eyebrow">Department operations</p>
-        <h1>@Model.Department.Name dashboard</h1>
-        <p>Cases routed to @Model.Department.Name.ToLowerInvariant(), unit assignments, waiting work, and response sign-off.</p>
-    </div>
-    <div class="heading-actions">
-        <span class="live-indicator"><span></span> Updates every 5 seconds</span>
-        <a class="button button-secondary" asp-page="/Units" asp-route-department="@Model.DepartmentType">Manage units</a>
-    </div>
-</section>
+<header class="page-heading">
+    <div><p class="eyebrow">@Model.Department.Name department</p><h1>@Model.Department.Name Dashboard</h1><p>Current cases and response-unit availability for @Model.Department.Name.</p></div>
+    <div class="heading-actions"><span class="live-indicator"><span></span> Live updates</span><a class="button button-secondary" asp-page="/Units" asp-route-department="@Model.DepartmentType">Manage Units</a></div>
+</header>
 
-<section class="metrics metrics-four">
-    <article><span class="metric-label">Current cases</span><strong>@Model.Cases.Count</strong></article>
-    <article><span class="metric-label">Waiting</span><strong>@Model.Cases.Count(c => c.IsWaitingFor(Model.DepartmentType))</strong></article>
-    <article><span class="metric-label">Responding</span><strong>@Model.Department.Units.Count(u => u.Availability == UnitAvailability.Unavailable)</strong></article>
-    <article><span class="metric-label">Available units</span><strong>@Model.Department.Units.Count(u => u.Availability == UnitAvailability.Available)</strong></article>
-</section>
-
-<section class="panel">
-    <div class="panel-title">
-        <div><p class="section-kicker">Current workload</p><h2>Routed cases</h2></div>
-        <span>@Model.Cases.Count case@(Model.Cases.Count == 1 ? "" : "s")</span>
-    </div>
-
-    @if (!Model.Cases.Any())
-    {
-        <div class="empty-state"><h3>No current cases</h3><p>Cases requiring @Model.Department.Name.ToLowerInvariant() response will appear here automatically.</p></div>
-    }
-    else
-    {
-        <div class="table-wrap">
-            <table>
-                <thead><tr><th>Case ID</th><th>Incident</th><th>Location</th><th>Priority</th><th>Department unit</th><th>Status</th><th>Response</th></tr></thead>
-                <tbody>
-                @foreach (var dispatchCase in Model.Cases)
-                {
-                    var activeUnit = dispatchCase.AssignedUnits.SingleOrDefault(unit => unit.Type == Model.DepartmentType);
-                    var completed = dispatchCase.Assignments.SingleOrDefault(a => a.Unit.Type == Model.DepartmentType && !a.IsActive);
-                    <tr class="@(dispatchCase.IsWaitingFor(Model.DepartmentType) ? "waiting-row" : null)">
-                        <td><strong class="case-number">@dispatchCase.CaseNumber</strong><small>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM, HH:mm")</small></td>
-                        <td><strong>@dispatchCase.IncidentType</strong><small class="truncate">@dispatchCase.Description</small></td>
-                        <td>@dispatchCase.Location</td>
-                        <td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td>
-                        <td>
-                            @if (activeUnit is not null) { <strong>@activeUnit.Identifier</strong><small>Response active</small> }
-                            else if (completed is not null) { <span>@completed.Unit.Identifier</span><small>Signed off</small> }
-                            else { <span class="waiting-label">Waiting for unit</span><small>Queued for @Model.Department.Name</small> }
-                        </td>
-                        <td><span class="badge status @dispatchCase.Status.ToString().ToLowerInvariant()">@(dispatchCase.Status == CaseStatus.InProgress ? "In Progress" : dispatchCase.Status)</span></td>
-                        <td>
-                            @if (activeUnit is not null)
-                            {
-                                <form method="post" asp-page-handler="SignOff" asp-route-department="@Model.DepartmentType">
-                                    <input type="hidden" name="caseId" value="@dispatchCase.Id" />
-                                    <input type="hidden" name="unitId" value="@activeUnit.Id" />
-                                    <button class="button button-compact" type="submit">Sign off</button>
-                                </form>
-                            }
-                            else { <span class="muted">No action</span> }
-                        </td>
-                    </tr>
-                }
-                </tbody>
-            </table>
-        </div>
-    }
-</section>
-
-<section class="panel">
-    <div class="panel-title"><div><p class="section-kicker">Unit inbox</p><h2>Assignment notifications</h2></div></div>
-    @if (!Model.Notifications.Any())
-    {
-        <p class="empty">No assignments have been sent to this department.</p>
-    }
-    else
-    {
-        <ul class="notifications">
-        @foreach (var notification in Model.Notifications)
+@if (waitingCases.Any())
+{
+    <section class="work-section attention-section">
+        <div class="section-heading"><div><p class="section-kicker">Needs attention</p><h2>Waiting for @Model.Department.Name unit</h2><p>No @Model.Department.Name.ToLowerInvariant() unit is currently available.</p></div><strong>@waitingCases.Length waiting</strong></div>
+        <div class="table-wrap"><table class="case-table"><thead><tr><th>Case</th><th>Incident and location</th><th>Priority</th><th>Other response</th><th>Current state</th></tr></thead><tbody>
+        @foreach (var dispatchCase in waitingCases)
         {
-            <li><div><strong>@notification.UnitIdentifier</strong><span class="badge neutral">@notification.CaseNumber</span></div><p>@notification.Message</p><time>@notification.CreatedAt.LocalDateTime.ToString("dd MMM, HH:mm")</time></li>
+            <tr><td><strong class="case-number">@dispatchCase.CaseNumber</strong><small>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM, HH:mm")</small></td><td><strong>@dispatchCase.IncidentType</strong><small>@dispatchCase.Location</small></td><td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td><td>@string.Join(", ", dispatchCase.RequiredUnitTypes.Where(t => t != Model.DepartmentType))</td><td><span class="state-label waiting">Waiting for @Model.Department.Name</span></td></tr>
         }
-        </ul>
+        </tbody></table></div>
+    </section>
+}
+
+<section class="work-section">
+    <div class="section-heading"><div><p class="section-kicker">Current workload</p><h2>Cases requiring @Model.Department.Name</h2><p>Assigned and completed response work for this department.</p></div><strong>@coveredCases.Length current</strong></div>
+    @if (!coveredCases.Any())
+    {
+        <div class="empty-state"><h3>No active @Model.Department.Name cases</h3><p>New cases requiring this department will appear here automatically.</p></div>
     }
+    else
+    {
+        <div class="table-wrap"><table class="case-table"><thead><tr><th>Case</th><th>Incident and location</th><th>Priority</th><th>Unit</th><th>Department response</th></tr></thead><tbody>
+        @foreach (var dispatchCase in coveredCases)
+        {
+            var activeUnit = dispatchCase.AssignedUnits.SingleOrDefault(unit => unit.Type == Model.DepartmentType);
+            var completed = dispatchCase.Assignments.SingleOrDefault(a => a.Unit.Type == Model.DepartmentType && !a.IsActive);
+            <tr><td><strong class="case-number">@dispatchCase.CaseNumber</strong><small>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM, HH:mm")</small></td><td><strong>@dispatchCase.IncidentType</strong><small>@dispatchCase.Location</small></td><td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td><td><strong>@(activeUnit?.Identifier ?? completed?.Unit.Identifier ?? "Not assigned")</strong></td><td>@if (activeUnit is not null) { <span class="state-label active">Response active</span> } else { <span class="state-label complete">Signed off</span> }</td></tr>
+        }
+        </tbody></table></div>
+    }
+</section>
+
+<section class="secondary-section">
+    <div class="section-heading"><div><h2>Response units</h2><p>Availability is controlled by assignment and sign-off.</p></div><a asp-page="/Units" asp-route-department="@Model.DepartmentType">Edit unit details</a></div>
+    <div class="table-wrap"><table class="compact-table"><thead><tr><th>Unit</th><th>Status</th><th>Location</th><th>Personnel</th></tr></thead><tbody>@foreach (var unit in Model.Department.Units) { <tr><td><strong>@unit.Identifier</strong></td><td><span class="badge availability @unit.Availability.ToString().ToLowerInvariant()">@(unit.Availability == UnitAvailability.Available ? "Available" : "Not Available")</span></td><td>@unit.Location</td><td>@unit.PersonnelCount</td></tr> }</tbody></table></div>
+</section>
+
+<section class="secondary-section">
+    <div class="section-heading"><div><h2>Assignment notifications</h2><p>Latest dispatch messages sent to this department's units.</p></div></div>
+    @if (!Model.Notifications.Any()) { <p class="empty-inline">No assignment notifications for @Model.Department.Name.</p> }
+    else { <ul class="activity-list">@foreach (var notification in Model.Notifications) { <li><div><strong>@notification.UnitIdentifier</strong><span>@notification.CaseNumber · @notification.IncidentType</span></div><time>@notification.CreatedAt.LocalDateTime.ToString("dd MMM, HH:mm")</time></li> }</ul> }
 </section>

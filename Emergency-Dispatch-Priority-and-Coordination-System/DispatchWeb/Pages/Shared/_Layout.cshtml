@@ -9,23 +9,34 @@
 <body>
     <header class="app-header">
         <div class="header-inner">
-            <a class="brand" asp-page="/Index" aria-label="Emergency Dispatch home"><span class="brand-mark">ED</span><span>Emergency Dispatch<small>Priority &amp; Coordination</small></span></a>
+            @{ var home = User.IsInRole(DemoRoles.Admin) ? "/Admin" : User.IsInRole(DemoRoles.Department) ? $"/Departments/{User.Scope()}" : User.IsInRole(DemoRoles.ResponseUnit) ? $"/ResponseUnits/{User.Scope()}" : "/"; var path = Context.Request.Path.Value ?? "/"; }
+            <a class="brand" href="@home" aria-label="Emergency Dispatch home"><span class="brand-mark">ED</span><span>Emergency Dispatch<small>Priority &amp; Coordination</small></span></a>
             <nav class="primary-nav" aria-label="Primary navigation">
-                <a asp-page="/Index">Dashboard</a>
-                <a asp-page="/Cases/Create">Record emergency</a>
-                <a asp-page="/Units">Units</a>
-                <a asp-page="/History">History</a>
+                @if (User.IsInRole(DemoRoles.Dispatcher))
+                {
+                    <a class="@(path == "/" ? "active" : null)" aria-current="@(path == "/" ? "page" : null)" asp-page="/Index">Dashboard</a><a class="@(path.StartsWith("/Cases/Create") ? "active" : null)" aria-current="@(path.StartsWith("/Cases/Create") ? "page" : null)" asp-page="/Cases/Create">Record Emergency</a><a class="@(path.StartsWith("/History") ? "active" : null)" aria-current="@(path.StartsWith("/History") ? "page" : null)" asp-page="/History">History</a>
+                }
+                else if (User.IsInRole(DemoRoles.Department))
+                {
+                    <a class="@(path.StartsWith("/Departments") ? "active" : null)" aria-current="@(path.StartsWith("/Departments") ? "page" : null)" asp-page="/Departments/Dashboard" asp-route-department="@User.Scope()">Dashboard</a><a class="@(path.StartsWith("/Units") ? "active" : null)" aria-current="@(path.StartsWith("/Units") ? "page" : null)" asp-page="/Units" asp-route-department="@User.Scope()">Units</a>
+                }
+                else if (User.IsInRole(DemoRoles.ResponseUnit))
+                {
+                    <a class="active" aria-current="page" asp-page="/ResponseUnits/Index" asp-route-unit="@User.Scope()">My Assignment</a>
+                }
+                else if (User.IsInRole(DemoRoles.Admin))
+                {
+                    <a class="@(path.StartsWith("/Admin") ? "active" : null)" asp-page="/Admin/Index">Admin</a><a class="@(path == "/" || path.StartsWith("/Cases") ? "active" : null)" asp-page="/Index">Dispatcher</a><a class="@(path.StartsWith("/Units") ? "active" : null)" asp-page="/Units">Units</a><a class="@(path.StartsWith("/History") ? "active" : null)" asp-page="/History">History</a>
+                }
             </nav>
-        </div>
-        <div class="department-bar">
-            <div><span>Department views</span><a asp-page="/Departments/Dashboard" asp-route-department="Medical">Medical</a><a asp-page="/Departments/Dashboard" asp-route-department="Police">Police</a><a asp-page="/Departments/Dashboard" asp-route-department="Fire">Fire</a></div>
+            <div class="user-menu"><div><strong>@User.DisplayName()</strong><span>@User.Role()@(string.IsNullOrWhiteSpace(User.Scope()) ? "" : $" - {User.Scope()}")</span></div><form method="post" asp-page="/Account/Logout"><button type="submit">Log out</button></form></div>
         </div>
     </header>
 
     <main id="main-content">
         @if (TempData["Success"] is string success)
         {
-            <div class="alert alert-success" role="status"><strong>Updated.</strong> @success</div>
+            <div class="alert alert-success" role="status">@success</div>
         }
         @if (TempData["Error"] is string error)
         {
@@ -34,7 +45,7 @@
         @RenderBody()
     </main>
 
-    <footer><span>Emergency Dispatch prototype</span><span>In-memory demonstration environment</span></footer>
+    <footer><span>Emergency Dispatch prototype</span><span>Role-based demonstration environment</span></footer>
 
     @if (ViewData["AutoRefresh"] as bool? == true)
     {
