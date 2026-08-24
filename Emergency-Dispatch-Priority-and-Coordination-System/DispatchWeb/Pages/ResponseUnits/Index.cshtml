@@ -1,13 +1,32 @@
 @page "/ResponseUnits/{unit}"
 @model DispatchWeb.Pages.ResponseUnits.IndexModel
-@{ ViewData["Title"] = $"{Model.Unit.Identifier} assignment"; ViewData["AutoRefresh"] = true; }
-<section class="page-heading"><div><p class="eyebrow">Response unit workspace</p><h1>@Model.Unit.Identifier</h1><p>@Model.Unit.Type response unit - @Model.Unit.Location</p></div><span class="badge availability @Model.Unit.Availability.ToString().ToLowerInvariant()">@(Model.Unit.Availability == UnitAvailability.Available ? "Available" : "Not Available")</span></section>
+@{ ViewData["Title"] = "My assignment"; ViewData["AutoRefresh"] = true; }
+
+<header class="page-heading unit-page-heading">
+    <div><p class="eyebrow">Response unit</p><h1>My Assignment</h1><p>Review the current dispatch and sign off when your response is complete.</p></div>
+    <div class="unit-identity"><span>Unit</span><strong>@Model.Unit.Identifier</strong><span class="badge availability @Model.Unit.Availability.ToString().ToLowerInvariant()">@(Model.Unit.Availability == UnitAvailability.Available ? "Available" : "Not Available")</span></div>
+</header>
+
 @if (Model.ActiveCase is null)
 {
-    <section class="panel assignment-panel"><div class="empty-state"><h2>No active assignment</h2><p>@Model.Unit.Identifier is available and waiting for dispatch.</p></div></section>
+    <section class="assignment-workspace empty-assignment"><div><p class="section-kicker">Current assignment</p><h2>No Active Assignment</h2><p>@Model.Unit.Identifier is currently available at @Model.Unit.Location.</p></div><span class="state-label complete">Ready for dispatch</span></section>
 }
 else
 {
-    <section class="panel assignment-panel"><div class="panel-title"><div><p class="section-kicker">Current assignment</p><h2>@Model.ActiveCase.CaseNumber</h2></div><span class="badge priority @Model.ActiveCase.Priority.ToString().ToLowerInvariant()">@Model.ActiveCase.Priority priority</span></div><dl class="assignment-details"><div><dt>Incident</dt><dd>@Model.ActiveCase.IncidentType</dd></div><div><dt>Location</dt><dd>@Model.ActiveCase.Location</dd></div><div><dt>Status</dt><dd>@(Model.ActiveCase.Status == CaseStatus.InProgress ? "In Progress" : Model.ActiveCase.Status)</dd></div><div><dt>Required response</dt><dd>@string.Join(", ", Model.ActiveCase.RequiredUnitTypes)</dd></div><div class="detail-wide"><dt>Details</dt><dd>@Model.ActiveCase.Description</dd></div></dl><form method="post" asp-page-handler="SignOff" asp-route-unit="@Model.Unit.Identifier" class="signoff-action"><input type="hidden" name="caseId" value="@Model.ActiveCase.Id" /><div><strong>Response complete?</strong><span>Sign off only when this unit has finished its work.</span></div><button class="button" type="submit">Sign off assignment</button></form></section>
+    <section class="assignment-workspace">
+        <div class="assignment-title"><div><p class="section-kicker">Current assignment</p><h2>@Model.ActiveCase.CaseNumber</h2><p>Assigned to @Model.Unit.Identifier</p></div><span class="badge priority @Model.ActiveCase.Priority.ToString().ToLowerInvariant()">@Model.ActiveCase.Priority priority</span></div>
+        <dl class="assignment-details">
+            <div><dt>Incident</dt><dd>@Model.ActiveCase.IncidentType</dd></div>
+            <div><dt>Location</dt><dd>@Model.ActiveCase.Location</dd></div>
+            <div><dt>Case status</dt><dd><span class="state-label active">In Progress</span></dd></div>
+            <div><dt>Required departments</dt><dd>@string.Join(", ", Model.ActiveCase.RequiredUnitTypes)</dd></div>
+            <div class="detail-wide"><dt>Incident details</dt><dd>@Model.ActiveCase.Description</dd></div>
+        </dl>
+        <form method="post" asp-page-handler="SignOff" asp-route-unit="@Model.Unit.Identifier" class="signoff-action"><input type="hidden" name="caseId" value="@Model.ActiveCase.Id" /><div><strong>Response complete?</strong><span>Use Sign Off when this unit has completed its response.</span></div><button class="button" type="submit">Sign Off</button></form>
+    </section>
 }
-@if (Model.Notification is not null) { <section class="panel"><div class="panel-title"><div><p class="section-kicker">Latest notification</p><h2>Assignment information</h2></div><time>@Model.Notification.CreatedAt.LocalDateTime.ToString("dd MMM, HH:mm")</time></div><p>@Model.Notification.Message</p></section> }
+
+@if (Model.Notification is not null)
+{
+    <section class="secondary-section notification-detail"><div class="section-heading"><div><h2>Latest dispatch message</h2><p>@Model.Notification.CaseNumber · @Model.Notification.CreatedAt.LocalDateTime.ToString("dd MMM, HH:mm")</p></div></div><p>@Model.Notification.Message</p></section>
+}

@@ -1,46 +1,29 @@
 @page
 @model UnitsModel
 
-@{
-    ViewData["Title"] = "Response units";
-    ViewData["AutoRefresh"] = true;
-}
+@{ ViewData["Title"] = "Response units"; ViewData["AutoRefresh"] = true; }
 
-<section class="page-heading">
-    <div><p class="eyebrow">Resource management</p><h1>Response units</h1><p>Review availability and maintain the location and personnel count for each department's units.</p></div>
-    <span class="live-indicator"><span></span> Updates every 5 seconds</span>
-</section>
+<header class="page-heading">
+    <div><p class="eyebrow">Unit management</p><h1>Response Units</h1><p>Review availability and update location or personnel details.</p></div>
+    <span class="live-indicator"><span></span> Live updates</span>
+</header>
 
 @if (User.IsAdmin())
 {
-    <nav class="tabs" aria-label="Filter units by department"><a class="@(!Model.Department.HasValue ? "active" : null)" asp-page="/Units">All units</a>@foreach (var type in Enum.GetValues<ResponseUnitType>()) { <a class="@(Model.Department == type ? "active" : null)" asp-page="/Units" asp-route-department="@type">@type</a> }</nav>
+    <nav class="tabs" aria-label="Filter units by department"><a class="@(!Model.Department.HasValue ? "active" : null)" asp-page="/Units">All</a>@foreach (var type in Enum.GetValues<ResponseUnitType>()) { <a class="@(Model.Department == type ? "active" : null)" asp-page="/Units" asp-route-department="@type">@type</a> }</nav>
 }
 
 <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
 
 @foreach (var department in Model.Departments)
 {
-    <section class="panel">
-        <div class="panel-title"><div><p class="section-kicker">@department.Type department</p><h2>@department.Name units</h2></div><span>@department.Units.Count(u => u.Availability == UnitAvailability.Available) of @department.Units.Count available</span></div>
-        <div class="unit-grid">
+    <section class="work-section unit-management-section">
+        <div class="section-heading"><div><p class="section-kicker">@department.Type department</p><h2>@department.Name units</h2><p>Availability changes automatically through dispatch and sign-off.</p></div><strong>@department.Units.Count(u => u.Availability == UnitAvailability.Available) of @department.Units.Count available</strong></div>
+        <div class="table-wrap"><table class="unit-table"><thead><tr><th>Unit</th><th>Workflow status</th><th>Current location</th><th>Personnel</th><th><span class="visually-hidden">Action</span></th></tr></thead><tbody>
         @foreach (var unit in department.Units)
         {
-            <article class="unit-card">
-                <div class="unit-card-heading">
-                    <div><h3>@unit.Identifier</h3><span>@unit.Type response unit</span></div>
-                    <span class="badge availability @unit.Availability.ToString().ToLowerInvariant()">@(unit.Availability == UnitAvailability.Available ? "Available" : "Not Available")</span>
-                </div>
-                @if (unit.AssignedCaseId.HasValue) { <p class="assignment-note"><strong>Active assignment</strong> CASE-@unit.AssignedCaseId.Value.ToString()[..8].ToUpperInvariant()</p> }
-                <form method="post" asp-page-handler="Update" class="unit-form">
-                    <input type="hidden" name="Input.UnitId" value="@unit.Id" />
-                    <input type="hidden" name="Input.Department" value="@department.Type" />
-                    <input type="hidden" name="Input.Identifier" value="@unit.Identifier" />
-                    <div class="form-field"><label for="location-@unit.Id">Current location</label><input id="location-@unit.Id" name="Input.Location" value="@unit.Location" required maxlength="120" /></div>
-                    <div class="form-field form-field-small"><label for="personnel-@unit.Id">Personnel</label><input id="personnel-@unit.Id" name="Input.PersonnelCount" value="@unit.PersonnelCount" type="number" min="1" max="30" required /></div>
-                    <button class="button button-secondary button-compact" type="submit">Save details</button>
-                </form>
-            </article>
+            <tr><td><strong>@unit.Identifier</strong><small>@unit.Type response</small></td><td><span class="badge availability @unit.Availability.ToString().ToLowerInvariant()">@(unit.Availability == UnitAvailability.Available ? "Available" : "Not Available")</span>@if (unit.AssignedCaseId.HasValue) { <small>Active case: CASE-@unit.AssignedCaseId.Value.ToString()[..8].ToUpperInvariant()</small> }</td><td colspan="3"><form method="post" asp-page-handler="Update" class="unit-row-form"><input type="hidden" name="Input.UnitId" value="@unit.Id" /><input type="hidden" name="Input.Department" value="@department.Type" /><input type="hidden" name="Input.Identifier" value="@unit.Identifier" /><div class="form-field"><label class="visually-hidden" for="location-@unit.Id">@unit.Identifier location</label><input id="location-@unit.Id" name="Input.Location" value="@unit.Location" required maxlength="120" /></div><div class="form-field personnel-input"><label class="visually-hidden" for="personnel-@unit.Id">@unit.Identifier personnel</label><input id="personnel-@unit.Id" name="Input.PersonnelCount" value="@unit.PersonnelCount" type="number" min="1" max="30" required /></div><button class="button button-secondary button-compact" type="submit">Save</button></form></td></tr>
         }
-        </div>
+        </tbody></table></div>
     </section>
 }
