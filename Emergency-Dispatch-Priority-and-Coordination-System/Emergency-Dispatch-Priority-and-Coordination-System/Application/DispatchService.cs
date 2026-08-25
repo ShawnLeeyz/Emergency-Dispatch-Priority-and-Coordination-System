@@ -57,7 +57,7 @@ public sealed class DispatchService
         foreach (var responseType in dispatchCase.WaitingUnitTypes)
         {
             var unit = _departments.Get(responseType)?.Units.FirstOrDefault(candidate => candidate.Availability == UnitAvailability.Available);
-            if (unit is not null && dispatchCase.Assign(unit)) _notifier.Notify(unit, dispatchCase);
+            if (unit is not null && dispatchCase.Assign(unit)) NotifySafely(unit, dispatchCase);
         }
     }
 
@@ -70,7 +70,20 @@ public sealed class DispatchService
             .FirstOrDefault();
 
         if (waitingCase is not null && waitingCase.Assign(availableUnit))
-            _notifier.Notify(availableUnit, waitingCase);
+            NotifySafely(availableUnit, waitingCase);
+    }
+
+    private void NotifySafely(Unit unit, Case dispatchCase)
+    {
+        try
+        {
+            _notifier.Notify(unit, dispatchCase);
+        }
+        catch
+        {
+            // Appendix 2 classifies notification as non-critical. Assignment must remain successful
+            // if the notification implementation is temporarily unavailable.
+        }
     }
 }
 

@@ -29,7 +29,8 @@ dotnet test .\Emergency-Dispatch-Priority-and-Coordination-System\Emergency-Disp
 ## Current prototype workflow
 
 1. A dispatcher records caller, incident, location, description, and required response details.
-2. The system creates the case, applies the isolated prototype priority policy, and routes it to
+2. The system creates the case, applies the Appendix 1 department keyword policy with dispatcher
+   severity as its fallback, and routes it to
    each selected department.
 3. The first available unit in each department is assigned. Uncovered department work remains
    visible in a deterministic first-in waiting queue.
@@ -67,9 +68,10 @@ scope access rather than relying only on hidden navigation links.
   role/scope route enforcement.
 - `Test` contains focused MSTest workflow regressions.
 
-## Priority limitation
+## Priority policy
 
-The repository report names Appendix 1 as the location for Medical, Police, and Fire
-priority/severity activity diagrams, but the diagrams and their decision rules are not present.
-`KeywordSeverityPriority` therefore remains an explicitly isolated prototype placeholder and
-must not be treated as a real emergency-service decision process.
+`KeywordSeverityPriority` implements the Appendix 1 Police, Medical/Ambulance, and Fire keyword
+groups. It checks only the departments requested by the case, gives High matches precedence over
+Medium matches, and uses the dispatcher-selected severity when no listed term matches. For a
+multi-department case, the highest matching priority is used. This remains a university prototype
+policy and must not be treated as operational emergency-service triage guidance.
