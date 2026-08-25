@@ -70,7 +70,8 @@ public sealed class PrototypeTesting
     {
         var cases = new InMemoryCaseRepository();
         var departments = StandardDepartments();
-        var service = CreateService(cases, departments);
+        var notifier = new InMemoryDispatchNotifier();
+        var service = CreateService(cases, departments, notifier);
 
         var result = service.CreateAndDispatch(Request(
             description: "Two vehicles blocking the road after a collision",
@@ -78,31 +79,61 @@ public sealed class PrototypeTesting
             requiredTypes: [ResponseUnitType.Police, ResponseUnitType.Medical]));
 
         Assert.AreSame(result, cases.Get(result.Id));
-        Assert.AreEqual(Priority.Medium, result.Priority);
+        Assert.AreEqual(Priority.High, result.Priority);
         Assert.AreEqual(CaseStatus.InProgress, result.Status);
         CollectionAssert.AreEqual(
             new[] { "POL-01", "MED-01" },
             result.AssignedUnits.Select(unit => unit.Identifier).ToArray());
         Assert.IsTrue(result.AssignedUnits.All(unit => unit.Availability == UnitAvailability.Unavailable));
+        CollectionAssert.AreEquivalent(
+            new[] { "POL-01", "MED-01" },
+            notifier.GetAll().Select(notification => notification.UnitIdentifier).ToArray());
+        Assert.IsTrue(notifier.GetAll().All(notification =>
+            notification.CaseNumber == result.CaseNumber &&
+            notification.IncidentType == result.IncidentType &&
+            notification.Location == result.Location));
     }
 
     [TestMethod]
-    [DataRow("Person is unconscious", Severity.Low, Priority.High)]
-    [DataRow("Vehicle collision", Severity.Low, Priority.Medium)]
-    [DataRow("Routine welfare request", Severity.High, Priority.High)]
-    [DataRow("Routine welfare request", Severity.Medium, Priority.Medium)]
-    [DataRow("Routine welfare request", Severity.Low, Priority.Low)]
-    public void TC04_PrototypePriorityPolicy_ReturnsItsDefinedOutcome(
+    [DynamicData(nameof(AppendixPriorityCases))]
+    public void TC04_AppendixDepartmentKeywordsTakePrecedence_ThenSeverityIsFallback(
+        ResponseUnitType department,
+        string incidentType,
         string description,
         Severity severity,
         Priority expected)
     {
-        var dispatchCase = new Case("John Smith", "021 123 4567", "Emergency", description,
-            "25 Queen Street", severity, [ResponseUnitType.Medical]);
+        var dispatchCase = new Case("John Smith", "021 123 4567", incidentType, description,
+            "25 Queen Street", severity, [department]);
 
         var actual = new KeywordSeverityPriority().Calculate(dispatchCase);
 
         Assert.AreEqual(expected, actual);
+    }
+
+    [TestMethod]
+    public void TC04_MultiDepartmentCase_UsesHighestMatchingAppendixPriority()
+    {
+        var dispatchCase = new Case("John Smith", "021 123 4567", "Emergency",
+            "Police report trespassing while Medical reports chest pain", "25 Queen Street",
+            Severity.Low, [ResponseUnitType.Police, ResponseUnitType.Medical]);
+
+        var actual = new KeywordSeverityPriority().Calculate(dispatchCase);
+
+        Assert.AreEqual(Priority.High, actual);
+    }
+
+    [TestMethod]
+    public void Appendix02_NotificationFailure_DoesNotBreakCriticalDispatchWorkflow()
+    {
+        var cases = new InMemoryCaseRepository();
+        var service = CreateService(cases, notifier: new ThrowingNotifier());
+
+        var result = service.CreateAndDispatch(Request(requiredTypes: [ResponseUnitType.Medical]));
+
+        Assert.AreSame(result, cases.Get(result.Id));
+        Assert.AreEqual(CaseStatus.InProgress, result.Status);
+        Assert.AreEqual(UnitAvailability.Unavailable, result.AssignedUnits.Single().Availability);
     }
 
     [TestMethod]
@@ -212,7 +243,7 @@ public sealed class PrototypeTesting
     }
 
     [TestMethod]
-    public void TC09_DepartmentProjection_ContainsOnlyItsCasesAndReflectsChanges()
+    public void TC09_DepartmentProjection_ContainsOnlyItsCasesAndIncludesNewCasesAfterRefresh()
     {
         var cases = new InMemoryCaseRepository();
         var service = CreateService(cases);
@@ -252,19 +283,22 @@ public sealed class PrototypeTesting
     }
 
     [TestMethod]
-    public void TC11_RemovingAllActiveUnits_ReturnsIncompleteCaseToOpen()
+    public void TC11_HistorySearch_ReturnsMatchesForCallerCaseIdOrDate()
     {
-        var dispatchCase = new Case("John Smith", "021 123 4567", "Emergency", "Details",
-            "25 Queen Street", Severity.Low, [ResponseUnitType.Police]);
-        var unit = new Unit("P-03", ResponseUnitType.Police, "Central", 2);
-        Assert.IsTrue(dispatchCase.Assign(unit));
+        var cases = new InMemoryCaseRepository();
+        var callerMatch = CaseAt("Alex Morgan", new DateTimeOffset(2026, 8, 20, 1, 0, 0, TimeSpan.Zero));
+        var idMatch = CaseAt("Jordan Lee", new DateTimeOffset(2026, 8, 21, 1, 0, 0, TimeSpan.Zero));
+        var dateMatch = CaseAt("Taylor Brown", new DateTimeOffset(2026, 8, 22, 1, 0, 0, TimeSpan.Zero));
+        var noMatch = CaseAt("Sam Wilson", new DateTimeOffset(2026, 8, 23, 1, 0, 0, TimeSpan.Zero));
+        cases.Add(callerMatch);
+        cases.Add(idMatch);
+        cases.Add(dateMatch);
+        cases.Add(noMatch);
 
-        var removed = dispatchCase.Unassign(unit.Id);
+        var results = cases.Search("Alex", idMatch.CaseNumber, new DateOnly(2026, 8, 22));
 
-        Assert.IsTrue(removed);
-        Assert.AreEqual(CaseStatus.Open, dispatchCase.Status);
-        Assert.AreEqual(UnitAvailability.Available, unit.Availability);
-        Assert.IsEmpty(dispatchCase.AssignedUnits);
+        CollectionAssert.AreEquivalent(new[] { callerMatch, idMatch, dateMatch }, results.ToArray());
+        CollectionAssert.DoesNotContain(results.ToArray(), noMatch);
     }
 
     [TestMethod]
@@ -350,6 +384,62 @@ public sealed class PrototypeTesting
         Assert.IsTrue(blocker.Assign(unit));
     }
 
+    public static IEnumerable<object[]> AppendixPriorityCases()
+    {
+        foreach (var term in new[]
+                 {
+                     "gun", "firearm", "shooting", "weapon", "armed", "knife", "stabbing", "kill", "murder",
+                     "hostage", "kidnapping", "assault", "attacking", "suicide", "unconscious", "unresponsive", "bleeding"
+                 })
+            yield return [ResponseUnitType.Police, "Emergency", $"Report of {term}", Severity.Low, Priority.High];
+
+        foreach (var term in new[]
+                 {
+                     "fleeing", "running away", "suspect", "intruder", "fight", "brawl", "punching", "burglary",
+                     "breaking in", "robbery", "mugging", "domestic", "arguing", "screaming", "yelling",
+                     "trespassing", "vandalism", "smashing"
+                 })
+            yield return [ResponseUnitType.Police, "Emergency", $"Report of {term}", Severity.Low, Priority.Medium];
+
+        foreach (var term in new[]
+                 {
+                     "unconscious", "unresponsive", "passed out", "not breathing", "choking", "heart attack",
+                     "chest pain", "cardiac", "stroke", "face drooping", "severe bleeding", "arterial"
+                 })
+            yield return [ResponseUnitType.Medical, "Emergency", $"Patient is {term}", Severity.Low, Priority.High];
+
+        foreach (var term in new[]
+                 {
+                     "broken bone", "fracture", "conscious fall", "fall while conscious", "seizure has stopped",
+                     "stopped seizure", "moderate burn", "burn moderate", "severe pain", "dizzy", "fainting"
+                 })
+            yield return [ResponseUnitType.Medical, "Emergency", $"Patient reports {term}", Severity.Low, Priority.Medium];
+
+        foreach (var term in new[]
+                 {
+                     "trapped", "inside", "structure fire", "house fire", "building on fire", "explosion", "building gas leak",
+                     "chemical", "hazmat", "spill", "wildfire"
+                 })
+            yield return [ResponseUnitType.Fire, "Emergency", $"Report of {term}", Severity.Low, Priority.High];
+
+        foreach (var term in new[]
+                 {
+                     "vehicle fire", "small wildfire", "grass fire", "scrub fire", "brush fire", "tree fire",
+                     "smell of smoke", "electrical sparks", "fire alarm", "smoke detector", "dumpster fire"
+                 })
+            yield return [ResponseUnitType.Fire, "Emergency", $"Report of {term}", Severity.Low, Priority.Medium];
+
+        yield return [ResponseUnitType.Medical, "Routine welfare request", "No listed keyword", Severity.High, Priority.High];
+        yield return [ResponseUnitType.Medical, "Routine welfare request", "No listed keyword", Severity.Medium, Priority.Medium];
+        yield return [ResponseUnitType.Medical, "Routine welfare request", "No listed keyword", Severity.Low, Priority.Low];
+        yield return [ResponseUnitType.Police, "Heart attack", "No Police keyword", Severity.Low, Priority.Low];
+        yield return [ResponseUnitType.Medical, "Chest pain", "Reported in incident type", Severity.Low, Priority.High];
+    }
+
+    private static Case CaseAt(string caller, DateTimeOffset recordedAt) =>
+        new(caller, "021 123 4567", "Report", "Details", "25 Queen Street",
+            Severity.Low, [ResponseUnitType.Police], recordedAt);
+
     private static Case[] ActiveCasesFor(ICaseRepository cases, ResponseUnitType departmentType) =>
         cases.GetAll()
             .Where(dispatchCase => dispatchCase.Status != CaseStatus.Closed &&
@@ -360,5 +450,11 @@ public sealed class PrototypeTesting
     {
         public IReadOnlyCollection<Department> GetAll() => departments;
         public Department? Get(ResponseUnitType type) => departments.SingleOrDefault(department => department.Type == type);
+    }
+
+    private sealed class ThrowingNotifier : IDispatchNotifier
+    {
+        public void Notify(Unit unit, Case dispatchCase) => throw new InvalidOperationException("Notification unavailable.");
+        public IReadOnlyCollection<DispatchNotification> GetAll() => [];
     }
 }
