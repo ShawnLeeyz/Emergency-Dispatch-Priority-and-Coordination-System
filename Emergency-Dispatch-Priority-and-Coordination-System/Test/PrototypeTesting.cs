@@ -387,7 +387,7 @@ public sealed class PrototypeTesting
         });
         var context = new DefaultHttpContext
         {
-            User = new DemoAccount("tester", "password", "Test User", role, scope).CreatePrincipal()
+            User = new DemoAccount("tester", "Test User", role, scope).CreatePrincipal()
         };
         context.Request.Path = path;
         if (path.StartsWith("/Departments/", StringComparison.OrdinalIgnoreCase))

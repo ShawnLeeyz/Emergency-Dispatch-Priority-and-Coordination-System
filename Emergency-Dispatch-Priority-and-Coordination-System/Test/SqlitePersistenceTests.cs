@@ -149,5 +149,6 @@ public sealed class SqlitePersistenceTests
     private static void DeleteDatabase(string path)
     {
         if (File.Exists(path)) File.Delete(path);
+        if (File.Exists(path + ".key")) File.Delete(path + ".key");
     }
 }

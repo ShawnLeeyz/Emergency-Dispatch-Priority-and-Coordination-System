@@ -120,6 +120,7 @@ public sealed class WebApplicationTests
         {
             base.Dispose(disposing);
             if (File.Exists(_databasePath)) File.Delete(_databasePath);
+            if (File.Exists(_databasePath + ".key")) File.Delete(_databasePath + ".key");
         }
     }
 }

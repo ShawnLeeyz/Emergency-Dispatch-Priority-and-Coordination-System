@@ -23,8 +23,8 @@
             <div class="form-field"><label asp-for="Input.Password"></label><input asp-for="Input.Password" autocomplete="current-password" /><span asp-validation-for="Input.Password" class="field-validation"></span></div>
             <button class="button" type="submit">Sign in</button>
         </form>
-        <details class="demo-reference"><summary>Demo account reference</summary><div class="table-wrap"><table><thead><tr><th>Username</th><th>Password</th><th>Workspace</th></tr></thead><tbody>@foreach (var account in Model.DemoAccounts) { <tr><td><code>@account.Username</code></td><td><code>@account.Password</code></td><td>@account.Role @(account.Scope is null ? "" : $"- {account.Scope}")</td></tr> }</tbody></table></div></details>
-        <p class="security-note">Fake plaintext credentials are used only for this university prototype. Do not use real credentials.</p>
+        <details class="demo-reference"><summary>Demo account reference</summary><div class="table-wrap"><table><thead><tr><th>Username</th><th>Workspace</th></tr></thead><tbody>@foreach (var account in Model.DemoAccounts) { <tr><td><code>@account.Username</code></td><td>@account.Role @(account.Scope is null ? "" : $"- {account.Scope}")</td></tr> }</tbody></table></div></details>
+        <p class="security-note">Demo passwords are stored as salted hashes. Use only the fake credentials supplied for this prototype.</p>
     </section>
 </main>
 </body>

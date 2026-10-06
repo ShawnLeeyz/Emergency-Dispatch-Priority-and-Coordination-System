@@ -10,7 +10,7 @@ public static class DemoRoles
     public const string Admin = "Admin";
 }
 
-public sealed record DemoAccount(string Username, string Password, string DisplayName, string Role, string? Scope)
+public sealed record DemoAccount(string Username, string DisplayName, string Role, string? Scope)
 {
     public ClaimsPrincipal CreatePrincipal()
     {

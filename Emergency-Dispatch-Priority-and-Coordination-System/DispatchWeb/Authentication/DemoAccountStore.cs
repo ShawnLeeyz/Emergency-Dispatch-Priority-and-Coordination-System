@@ -1,33 +1,66 @@
+using Emergency_Dispatch_Priority_and_Coordination_System.Application;
+using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
+
 namespace DispatchWeb.Authentication;
 
 public sealed class DemoAccountStore
 {
-    private readonly IReadOnlyDictionary<string, DemoAccount> _accounts;
+    private readonly IUserAccountRepository _accounts;
+    private readonly PasswordHasher _passwordHasher;
 
-    public DemoAccountStore(IWebHostEnvironment environment)
+    public DemoAccountStore(IUserAccountRepository accounts, PasswordHasher passwordHasher)
     {
-        var path = Path.Combine(environment.ContentRootPath, "Data", "demo-accounts.txt");
-        _accounts = File.ReadLines(path)
-            .Select(line => line.Trim())
-            .Where(line => line.Length > 0 && !line.StartsWith('#'))
-            .Select(Parse)
-            .ToDictionary(account => account.Username, StringComparer.OrdinalIgnoreCase);
+        _accounts = accounts;
+        _passwordHasher = passwordHasher;
+        SeedDemoAccounts();
     }
 
-    public DemoAccount? Validate(string username, string password) =>
-        _accounts.TryGetValue(username.Trim(), out var account) && account.Password == password
-            ? account
-            : null;
-
-    public IReadOnlyCollection<DemoAccount> GetAll() => _accounts.Values.OrderBy(account => account.Role).ThenBy(account => account.Username).ToArray();
-
-    private static DemoAccount Parse(string line)
+    public DemoAccount? Validate(string username, string password)
     {
-        var values = line.Split('|');
-        if (values.Length != 5 || values.Take(4).Any(string.IsNullOrWhiteSpace))
-            throw new InvalidOperationException("Each demo account must use username|password|display name|role|scope format.");
+        if (string.IsNullOrWhiteSpace(username)) return null;
 
-        return new DemoAccount(values[0].Trim(), values[1], values[2].Trim(), values[3].Trim(),
-            string.IsNullOrWhiteSpace(values[4]) ? null : values[4].Trim());
+        // The database supplies the stored salt and hash. The entered password is hashed
+        // with the same settings, then the two hashes are compared without decrypting anything.
+        var storedAccount = _accounts.Get(username);
+        if (storedAccount is null || !_passwordHasher.Verify(password, storedAccount.PasswordHash,
+                storedAccount.PasswordSalt, storedAccount.HashIterations))
+            return null;
+
+        return ToDemoAccount(storedAccount);
     }
+
+    public IReadOnlyCollection<DemoAccount> GetAll() =>
+        _accounts.GetAll().Select(ToDemoAccount).ToArray();
+
+    private void SeedDemoAccounts()
+    {
+        // These are fake university demonstration passwords. Each one is hashed with a new random
+        // salt before storage, so the original password never appears in the SQLite database.
+        Add("dispatch01", "dispatch-demo", "Alex Dispatcher", DemoRoles.Dispatcher, null);
+        Add("dispatch02", "dispatch-demo", "Morgan Dispatcher", DemoRoles.Dispatcher, null);
+        Add("medical01", "department-demo", "Jamie Medical Coordinator", DemoRoles.Department, "Medical");
+        Add("medical02", "department-demo", "Taylor Medical Coordinator", DemoRoles.Department, "Medical");
+        Add("police01", "department-demo", "Casey Police Coordinator", DemoRoles.Department, "Police");
+        Add("police02", "department-demo", "Jordan Police Coordinator", DemoRoles.Department, "Police");
+        Add("fire01", "department-demo", "Riley Fire Coordinator", DemoRoles.Department, "Fire");
+        Add("fire02", "department-demo", "Avery Fire Coordinator", DemoRoles.Department, "Fire");
+        Add("med01", "unit-demo", "MED-01 Crew", DemoRoles.ResponseUnit, "MED-01");
+        Add("med02", "unit-demo", "MED-02 Crew", DemoRoles.ResponseUnit, "MED-02");
+        Add("pol01", "unit-demo", "POL-01 Crew", DemoRoles.ResponseUnit, "POL-01");
+        Add("pol02", "unit-demo", "POL-02 Crew", DemoRoles.ResponseUnit, "POL-02");
+        Add("fir01", "unit-demo", "FIR-01 Crew", DemoRoles.ResponseUnit, "FIR-01");
+        Add("fir02", "unit-demo", "FIR-02 Crew", DemoRoles.ResponseUnit, "FIR-02");
+        Add("admin", "admin-demo", "Prototype Administrator", DemoRoles.Admin, null);
+    }
+
+    private void Add(string username, string password, string displayName, string role, string? scope)
+    {
+        if (_accounts.Get(username) is not null) return;
+        var passwordHash = _passwordHasher.Create(password);
+        _accounts.Add(new UserAccount(username, passwordHash.Hash, passwordHash.Salt,
+            passwordHash.Iterations, displayName, role, scope));
+    }
+
+    private static DemoAccount ToDemoAccount(UserAccount account) =>
+        new(account.Username, account.DisplayName, account.Role, account.Scope);
 }

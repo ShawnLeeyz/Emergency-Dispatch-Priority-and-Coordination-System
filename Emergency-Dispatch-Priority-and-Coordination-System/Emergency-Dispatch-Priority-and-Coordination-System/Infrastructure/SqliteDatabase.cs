@@ -9,16 +9,19 @@ namespace Emergency_Dispatch_Priority_and_Coordination_System.Infrastructure;
 public sealed class SqliteDatabase
 {
     private readonly string _connectionString;
+    private readonly LocalDataEncryptor _encryptor;
     private readonly Lock _databaseLock = new();
     private readonly Dictionary<Guid, Case> _cases = [];
     private readonly Dictionary<ResponseUnitType, Department> _departments = [];
     private readonly Dictionary<Guid, Unit> _units = [];
 
-    public SqliteDatabase(string connectionString)
+    public SqliteDatabase(string connectionString, string? encryptionKeyPath = null)
     {
         _connectionString = connectionString;
         CreateDatabaseDirectory();
+        _encryptor = new LocalDataEncryptor(encryptionKeyPath ?? GetDefaultKeyPath());
         CreateTables();
+        EncryptExistingValues();
         SeedDepartments();
         LoadData();
     }
@@ -110,9 +113,9 @@ public sealed class SqliteDatabase
             command.Parameters.AddWithValue("$unitIdentifier", notification.UnitIdentifier);
             command.Parameters.AddWithValue("$departmentType", (int)notification.DepartmentType);
             command.Parameters.AddWithValue("$caseNumber", notification.CaseNumber);
-            command.Parameters.AddWithValue("$incidentType", notification.IncidentType);
-            command.Parameters.AddWithValue("$location", notification.Location);
-            command.Parameters.AddWithValue("$message", notification.Message);
+            command.Parameters.AddWithValue("$incidentType", _encryptor.Encrypt(notification.IncidentType));
+            command.Parameters.AddWithValue("$location", _encryptor.Encrypt(notification.Location));
+            command.Parameters.AddWithValue("$message", _encryptor.Encrypt(notification.Message));
             command.ExecuteNonQuery();
         }
     }
@@ -133,10 +136,61 @@ public sealed class SqliteDatabase
             {
                 notifications.Add(new DispatchNotification(
                     ParseDate(reader.GetString(0)), reader.GetString(1),
-                    (ResponseUnitType)reader.GetInt32(2), reader.GetString(3), reader.GetString(4),
-                    reader.GetString(5), reader.GetString(6)));
+                    (ResponseUnitType)reader.GetInt32(2), reader.GetString(3), _encryptor.Decrypt(reader.GetString(4)),
+                    _encryptor.Decrypt(reader.GetString(5)), _encryptor.Decrypt(reader.GetString(6))));
             }
             return notifications;
+        }
+    }
+
+    internal void AddAccount(UserAccount account)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        lock (_databaseLock)
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT OR IGNORE INTO UserAccounts
+                    (Username, PasswordHash, PasswordSalt, HashIterations, DisplayName, Role, Scope)
+                VALUES
+                    ($username, $passwordHash, $passwordSalt, $hashIterations, $displayName, $role, $scope);
+                """;
+            AddAccountParameters(command, account);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    internal UserAccount? GetAccount(string username)
+    {
+        lock (_databaseLock)
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT Username, PasswordHash, PasswordSalt, HashIterations, DisplayName, Role, Scope
+                FROM UserAccounts WHERE Username = $username;
+                """;
+            command.Parameters.AddWithValue("$username", username.Trim());
+            using var reader = command.ExecuteReader();
+            return reader.Read() ? ReadAccount(reader) : null;
+        }
+    }
+
+    internal IReadOnlyCollection<UserAccount> GetAccounts()
+    {
+        lock (_databaseLock)
+        {
+            var accounts = new List<UserAccount>();
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT Username, PasswordHash, PasswordSalt, HashIterations, DisplayName, Role, Scope
+                FROM UserAccounts ORDER BY Role, Username;
+                """;
+            using var reader = command.ExecuteReader();
+            while (reader.Read()) accounts.Add(ReadAccount(reader));
+            return accounts;
         }
     }
 
@@ -165,11 +219,11 @@ public sealed class SqliteDatabase
                     Status = excluded.Status;
                 """;
             command.Parameters.AddWithValue("$id", dispatchCase.Id.ToString());
-            command.Parameters.AddWithValue("$callerName", dispatchCase.CallerName);
-            command.Parameters.AddWithValue("$callerPhone", dispatchCase.CallerPhone);
+            command.Parameters.AddWithValue("$callerName", _encryptor.Encrypt(dispatchCase.CallerName));
+            command.Parameters.AddWithValue("$callerPhone", _encryptor.Encrypt(dispatchCase.CallerPhone));
             command.Parameters.AddWithValue("$incidentType", dispatchCase.IncidentType);
-            command.Parameters.AddWithValue("$description", dispatchCase.Description);
-            command.Parameters.AddWithValue("$location", dispatchCase.Location);
+            command.Parameters.AddWithValue("$description", _encryptor.Encrypt(dispatchCase.Description));
+            command.Parameters.AddWithValue("$location", _encryptor.Encrypt(dispatchCase.Location));
             command.Parameters.AddWithValue("$recordedAt", dispatchCase.RecordedAt.ToString("O"));
             command.Parameters.AddWithValue("$severity", (int)dispatchCase.Severity);
             command.Parameters.AddWithValue("$priority", (int)dispatchCase.Priority);
@@ -288,6 +342,16 @@ public sealed class SqliteDatabase
                 Location TEXT NOT NULL,
                 Message TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS UserAccounts (
+                Username TEXT PRIMARY KEY COLLATE NOCASE,
+                PasswordHash TEXT NOT NULL,
+                PasswordSalt TEXT NOT NULL,
+                HashIterations INTEGER NOT NULL,
+                DisplayName TEXT NOT NULL,
+                Role TEXT NOT NULL,
+                Scope TEXT NULL
+            );
             """;
         command.ExecuteNonQuery();
     }
@@ -394,8 +458,10 @@ public sealed class SqliteDatabase
             while (reader.Read())
             {
                 caseRows.Add(new StoredCase(
-                    Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetString(2),
-                    reader.GetString(3), reader.GetString(4), reader.GetString(5), ParseDate(reader.GetString(6)),
+                    Guid.Parse(reader.GetString(0)), _encryptor.Decrypt(reader.GetString(1)),
+                    _encryptor.Decrypt(reader.GetString(2)), reader.GetString(3),
+                    _encryptor.Decrypt(reader.GetString(4)), _encryptor.Decrypt(reader.GetString(5)),
+                    ParseDate(reader.GetString(6)),
                     (Severity)reader.GetInt32(7), (Priority)reader.GetInt32(8), (CaseStatus)reader.GetInt32(9)));
             }
         }
@@ -451,6 +517,80 @@ public sealed class SqliteDatabase
 
     private static DateTimeOffset ParseDate(string value) =>
         DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+
+    private string GetDefaultKeyPath()
+    {
+        var dataSource = new SqliteConnectionStringBuilder(_connectionString).DataSource;
+        if (string.IsNullOrWhiteSpace(dataSource) || dataSource == ":memory:")
+            throw new InvalidOperationException("An encryption key path is required for an in-memory SQLite database.");
+        return Path.GetFullPath(dataSource) + ".key";
+    }
+
+    private void EncryptExistingValues()
+    {
+        using var connection = OpenConnection();
+        var cases = new List<(string Id, string Caller, string Phone, string Description, string Location)>();
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT Id, CallerName, CallerPhone, Description, Location FROM Cases;";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+                cases.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4)));
+        }
+
+        foreach (var row in cases)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                UPDATE Cases SET CallerName = $caller, CallerPhone = $phone,
+                    Description = $description, Location = $location WHERE Id = $id;
+                """;
+            command.Parameters.AddWithValue("$caller", _encryptor.Encrypt(row.Caller));
+            command.Parameters.AddWithValue("$phone", _encryptor.Encrypt(row.Phone));
+            command.Parameters.AddWithValue("$description", _encryptor.Encrypt(row.Description));
+            command.Parameters.AddWithValue("$location", _encryptor.Encrypt(row.Location));
+            command.Parameters.AddWithValue("$id", row.Id);
+            command.ExecuteNonQuery();
+        }
+
+        var notifications = new List<(long Id, string Incident, string Location, string Message)>();
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT Id, IncidentType, Location, Message FROM DispatchNotifications;";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+                notifications.Add((reader.GetInt64(0), reader.GetString(1), reader.GetString(2), reader.GetString(3)));
+        }
+
+        foreach (var row in notifications)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                UPDATE DispatchNotifications SET IncidentType = $incident,
+                    Location = $location, Message = $message WHERE Id = $id;
+                """;
+            command.Parameters.AddWithValue("$incident", _encryptor.Encrypt(row.Incident));
+            command.Parameters.AddWithValue("$location", _encryptor.Encrypt(row.Location));
+            command.Parameters.AddWithValue("$message", _encryptor.Encrypt(row.Message));
+            command.Parameters.AddWithValue("$id", row.Id);
+            command.ExecuteNonQuery();
+        }
+    }
+
+    private static void AddAccountParameters(SqliteCommand command, UserAccount account)
+    {
+        command.Parameters.AddWithValue("$username", account.Username);
+        command.Parameters.AddWithValue("$passwordHash", account.PasswordHash);
+        command.Parameters.AddWithValue("$passwordSalt", account.PasswordSalt);
+        command.Parameters.AddWithValue("$hashIterations", account.HashIterations);
+        command.Parameters.AddWithValue("$displayName", account.DisplayName);
+        command.Parameters.AddWithValue("$role", account.Role);
+        command.Parameters.AddWithValue("$scope", account.Scope ?? (object)DBNull.Value);
+    }
+
+    private static UserAccount ReadAccount(SqliteDataReader reader) => new(
+        reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetInt32(3),
+        reader.GetString(4), reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetString(6));
 
     private sealed record StoredCase(Guid Id, string CallerName, string CallerPhone, string IncidentType,
         string Description, string Location, DateTimeOffset RecordedAt, Severity Severity,

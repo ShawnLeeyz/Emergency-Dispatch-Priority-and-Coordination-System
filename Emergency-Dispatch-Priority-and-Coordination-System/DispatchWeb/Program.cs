@@ -23,13 +23,15 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
     });
 builder.Services.AddAuthorization();
-builder.Services.AddSingleton<DemoAccountStore>();
 var databasePath = Path.Combine(builder.Environment.ContentRootPath, "Data", "dispatch.db");
 var connectionString = builder.Configuration.GetConnectionString("DispatchDatabase") ?? $"Data Source={databasePath}";
 builder.Services.AddSingleton(new SqliteDatabase(connectionString));
 builder.Services.AddSingleton<ICaseRepository, SqliteCaseRepository>();
 builder.Services.AddSingleton<IDepartmentRepository, SqliteDepartmentRepository>();
 builder.Services.AddSingleton<IDispatchNotifier, SqliteDispatchNotifier>();
+builder.Services.AddSingleton<IUserAccountRepository, SqliteUserAccountRepository>();
+builder.Services.AddSingleton<PasswordHasher>();
+builder.Services.AddSingleton<DemoAccountStore>();
 builder.Services.AddSingleton<IPriorityStrategy, KeywordSeverityPriority>();
 builder.Services.AddSingleton<DispatchService>();
 
