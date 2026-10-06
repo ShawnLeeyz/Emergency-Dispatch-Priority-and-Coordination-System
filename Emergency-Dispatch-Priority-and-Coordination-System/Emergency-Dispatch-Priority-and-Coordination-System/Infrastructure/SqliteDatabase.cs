@@ -194,6 +194,61 @@ public sealed class SqliteDatabase
         }
     }
 
+    internal void AddAuditEvent(AuditEvent auditEvent)
+    {
+        ArgumentNullException.ThrowIfNull(auditEvent);
+        lock (_databaseLock)
+        {
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT INTO AuditEvents
+                    (Id, CreatedAt, EventType, PerformedBy, CaseId, CaseNumber,
+                     UnitIdentifier, OldValue, NewValue, Reason)
+                VALUES
+                    ($id, $createdAt, $eventType, $performedBy, $caseId, $caseNumber,
+                     $unitIdentifier, $oldValue, $newValue, $reason);
+                """;
+            command.Parameters.AddWithValue("$id", auditEvent.Id.ToString());
+            command.Parameters.AddWithValue("$createdAt", auditEvent.CreatedAt.ToString("O"));
+            command.Parameters.AddWithValue("$eventType", auditEvent.EventType);
+            command.Parameters.AddWithValue("$performedBy", auditEvent.PerformedBy);
+            command.Parameters.AddWithValue("$caseId", auditEvent.CaseId?.ToString() ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("$caseNumber", auditEvent.CaseNumber ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("$unitIdentifier", auditEvent.UnitIdentifier ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("$oldValue", EncryptOptional(auditEvent.OldValue));
+            command.Parameters.AddWithValue("$newValue", EncryptOptional(auditEvent.NewValue));
+            command.Parameters.AddWithValue("$reason", EncryptOptional(auditEvent.Reason));
+            command.ExecuteNonQuery();
+        }
+    }
+
+    internal IReadOnlyCollection<AuditEvent> GetAuditEvents()
+    {
+        lock (_databaseLock)
+        {
+            var events = new List<AuditEvent>();
+            using var connection = OpenConnection();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT Id, CreatedAt, EventType, PerformedBy, CaseId, CaseNumber,
+                       UnitIdentifier, OldValue, NewValue, Reason
+                FROM AuditEvents ORDER BY CreatedAt DESC, Id DESC;
+                """;
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                events.Add(new AuditEvent(
+                    Guid.Parse(reader.GetString(0)), ParseDate(reader.GetString(1)), reader.GetString(2),
+                    reader.GetString(3), reader.IsDBNull(4) ? null : Guid.Parse(reader.GetString(4)),
+                    reader.IsDBNull(5) ? null : reader.GetString(5),
+                    reader.IsDBNull(6) ? null : reader.GetString(6),
+                    DecryptOptional(reader, 7), DecryptOptional(reader, 8), DecryptOptional(reader, 9)));
+            }
+            return events;
+        }
+    }
+
     private void SaveCaseInternal(Case dispatchCase)
     {
         using var connection = OpenConnection();
@@ -351,6 +406,19 @@ public sealed class SqliteDatabase
                 DisplayName TEXT NOT NULL,
                 Role TEXT NOT NULL,
                 Scope TEXT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS AuditEvents (
+                Id TEXT PRIMARY KEY,
+                CreatedAt TEXT NOT NULL,
+                EventType TEXT NOT NULL,
+                PerformedBy TEXT NOT NULL,
+                CaseId TEXT NULL,
+                CaseNumber TEXT NULL,
+                UnitIdentifier TEXT NULL,
+                OldValue TEXT NULL,
+                NewValue TEXT NULL,
+                Reason TEXT NULL
             );
             """;
         command.ExecuteNonQuery();
@@ -591,6 +659,12 @@ public sealed class SqliteDatabase
     private static UserAccount ReadAccount(SqliteDataReader reader) => new(
         reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetInt32(3),
         reader.GetString(4), reader.GetString(5), reader.IsDBNull(6) ? null : reader.GetString(6));
+
+    private object EncryptOptional(string? value) =>
+        value is null ? DBNull.Value : _encryptor.Encrypt(value);
+
+    private string? DecryptOptional(SqliteDataReader reader, int column) =>
+        reader.IsDBNull(column) ? null : _encryptor.Decrypt(reader.GetString(column));
 
     private sealed record StoredCase(Guid Id, string CallerName, string CallerPhone, string IncidentType,
         string Description, string Location, DateTimeOffset RecordedAt, Severity Severity,

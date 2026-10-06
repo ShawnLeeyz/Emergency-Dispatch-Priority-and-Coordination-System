@@ -1,0 +1,38 @@
+@page "/Admin/AuditLog"
+@model DispatchWeb.Pages.Admin.AuditLogModel
+@{ ViewData["Title"] = "Audit Log"; }
+
+<header class="page-heading">
+    <div>
+        <p class="eyebrow">Prototype administration</p>
+        <h1>Persistent Audit Log</h1>
+        <p>Important system actions are shown newest first.</p>
+    </div>
+</header>
+
+@if (Model.Events.Count == 0)
+{
+    <div class="empty-state"><h2>No audit events</h2><p>Events will appear after cases or units are changed.</p></div>
+}
+else
+{
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Time</th><th>Action</th><th>User</th><th>Case</th><th>Unit</th><th>Change</th><th>Reason</th></tr></thead>
+            <tbody>
+            @foreach (var item in Model.Events)
+            {
+                <tr>
+                    <td>@item.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm:ss")</td>
+                    <td>@item.EventType</td>
+                    <td>@item.PerformedBy</td>
+                    <td>@(item.CaseNumber ?? "—")</td>
+                    <td>@(item.UnitIdentifier ?? "—")</td>
+                    <td>@(item.OldValue ?? "—") → @(item.NewValue ?? "—")</td>
+                    <td>@(item.Reason ?? "—")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

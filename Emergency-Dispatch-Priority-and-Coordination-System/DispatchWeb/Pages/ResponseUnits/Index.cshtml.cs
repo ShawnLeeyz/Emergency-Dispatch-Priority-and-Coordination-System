@@ -24,7 +24,7 @@ public sealed class IndexModel(IDepartmentRepository departments, ICaseRepositor
 
         try
         {
-            dispatchService.SignOffUnit(caseId, Unit.Id, Unit.Type);
+            dispatchService.SignOffUnit(caseId, Unit.Id, Unit.Type, User.Identity?.Name ?? "Unknown user");
             TempData["Success"] = $"{Unit.Identifier} signed off. Unit availability and case status were updated.";
         }
         catch (Exception exception) when (exception is KeyNotFoundException or InvalidOperationException)

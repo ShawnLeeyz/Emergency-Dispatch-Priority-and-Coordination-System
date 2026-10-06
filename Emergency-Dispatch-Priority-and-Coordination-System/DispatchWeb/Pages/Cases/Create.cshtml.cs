@@ -33,7 +33,7 @@ public sealed class CreateModel(DispatchService dispatchService) : PageModel
                 Input.Severity,
                 Input.RequiredUnitTypes);
 
-            var dispatchCase = dispatchService.CreateAndDispatch(request);
+            var dispatchCase = dispatchService.CreateAndDispatch(request, User.Identity?.Name ?? "Unknown user");
             return RedirectToPage("/Index", new { created = dispatchCase.CaseNumber });
         }
         catch (ArgumentException exception)

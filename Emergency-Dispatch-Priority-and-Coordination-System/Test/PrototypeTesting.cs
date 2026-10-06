@@ -407,7 +407,7 @@ public sealed class PrototypeTesting
         IDepartmentRepository? departments = null,
         IDispatchNotifier? notifier = null) =>
         new(cases, departments ?? StandardDepartments(), new KeywordSeverityPriority(),
-            notifier ?? new InMemoryDispatchNotifier());
+            notifier ?? new InMemoryDispatchNotifier(), new InMemoryAuditRepository());
 
     private static TestDepartmentRepository StandardDepartments() => new(
         new Department(ResponseUnitType.Medical, "Medical",

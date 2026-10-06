@@ -30,6 +30,7 @@ builder.Services.AddSingleton<ICaseRepository, SqliteCaseRepository>();
 builder.Services.AddSingleton<IDepartmentRepository, SqliteDepartmentRepository>();
 builder.Services.AddSingleton<IDispatchNotifier, SqliteDispatchNotifier>();
 builder.Services.AddSingleton<IUserAccountRepository, SqliteUserAccountRepository>();
+builder.Services.AddSingleton<IAuditRepository, SqliteAuditRepository>();
 builder.Services.AddSingleton<PasswordHasher>();
 builder.Services.AddSingleton<DemoAccountStore>();
 builder.Services.AddSingleton<IPriorityStrategy, KeywordSeverityPriority>();

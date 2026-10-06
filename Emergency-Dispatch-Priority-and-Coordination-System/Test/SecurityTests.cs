@@ -101,7 +101,8 @@ public sealed class SecurityTests
             var cases = new SqliteCaseRepository(database);
             var departments = new SqliteDepartmentRepository(database);
             var service = new DispatchService(cases, departments,
-                new KeywordSeverityPriority(), new SqliteDispatchNotifier(database));
+                new KeywordSeverityPriority(), new SqliteDispatchNotifier(database),
+                new SqliteAuditRepository(database));
 
             // Act
             var created = service.CreateAndDispatch(new CreateCaseRequest(

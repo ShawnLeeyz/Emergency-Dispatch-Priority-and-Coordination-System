@@ -36,7 +36,8 @@ public sealed class UnitsModel(IDepartmentRepository departments, DispatchServic
 
         try
         {
-            dispatchService.UpdateUnit(Input.Department, Input.UnitId, Input.Location, Input.PersonnelCount);
+            dispatchService.UpdateUnit(Input.Department, Input.UnitId, Input.Location, Input.PersonnelCount,
+                User.Identity?.Name ?? "Unknown user");
             TempData["Success"] = $"{Input.Identifier} details updated.";
             return RedirectToPage(new { department = Input.Department });
         }

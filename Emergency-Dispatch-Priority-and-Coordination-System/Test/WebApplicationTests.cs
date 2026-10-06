@@ -29,6 +29,8 @@ public sealed class WebApplicationTests
     [DataRow("pol01", "unit-demo", "/ResponseUnits/POL-01", HttpStatusCode.OK)]
     [DataRow("pol01", "unit-demo", "/ResponseUnits/POL-02", HttpStatusCode.Redirect)]
     [DataRow("admin", "admin-demo", "/Admin", HttpStatusCode.OK)]
+    [DataRow("admin", "admin-demo", "/Admin/AuditLog", HttpStatusCode.OK)]
+    [DataRow("dispatch01", "dispatch-demo", "/Admin/AuditLog", HttpStatusCode.Redirect)]
     public async Task LoginAndRoleAccess_UseTheRealCookieAndPagePipeline(
         string username, string password, string path, HttpStatusCode expectedStatus)
     {

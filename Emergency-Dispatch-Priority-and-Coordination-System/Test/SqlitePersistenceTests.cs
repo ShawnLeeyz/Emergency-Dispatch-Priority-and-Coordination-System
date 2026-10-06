@@ -113,7 +113,8 @@ public sealed class SqlitePersistenceTests
             var cases = new SqliteCaseRepository(firstDatabase);
             var departments = new SqliteDepartmentRepository(firstDatabase);
             var notifier = new SqliteDispatchNotifier(firstDatabase);
-            var service = new DispatchService(cases, departments, new KeywordSeverityPriority(), notifier);
+            var service = new DispatchService(cases, departments, new KeywordSeverityPriority(), notifier,
+                new SqliteAuditRepository(firstDatabase));
 
             // Act
             var dispatchCase = service.CreateAndDispatch(new CreateCaseRequest(
@@ -141,7 +142,8 @@ public sealed class SqlitePersistenceTests
     }
 
     private static DispatchService CreateService(ICaseRepository cases, IDepartmentRepository departments) =>
-        new(cases, departments, new KeywordSeverityPriority(), new InMemoryDispatchNotifier());
+        new(cases, departments, new KeywordSeverityPriority(), new InMemoryDispatchNotifier(),
+            new InMemoryAuditRepository());
 
     private static string NewDatabasePath() =>
         Path.Combine(Path.GetTempPath(), $"dispatch-persistence-tests-{Guid.NewGuid():N}.db");
