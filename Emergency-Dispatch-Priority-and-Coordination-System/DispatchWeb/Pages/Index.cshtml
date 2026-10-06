@@ -12,6 +12,10 @@
 {
     <div class="alert alert-success" role="status"><strong>@Request.Query["created"] created successfully.</strong> Routing and available-unit assignment are complete.</div>
 }
+@if (!string.IsNullOrWhiteSpace(Request.Query["overridden"]))
+{
+    <div class="alert alert-success" role="status"><strong>@Request.Query["overridden"] priority updated.</strong> The reason was recorded in the audit log.</div>
+}
 
 <header class="page-heading">
     <div><p class="eyebrow">Dispatcher</p><h1>Dashboard</h1><p>Monitor current emergency cases and response progress.</p></div>
@@ -25,7 +29,7 @@
         <div class="table-wrap"><table class="case-table"><thead><tr><th>Case</th><th>Incident and location</th><th>Priority</th><th>Required response</th><th>Assigned</th><th>Current state</th></tr></thead><tbody>
         @foreach (var dispatchCase in waitingCases)
         {
-            <tr><td><strong class="case-number">@dispatchCase.CaseNumber</strong><small>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM, HH:mm")</small></td><td><strong>@dispatchCase.IncidentType</strong><small>@dispatchCase.Location</small></td><td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td><td>@string.Join(", ", dispatchCase.RequiredUnitTypes)</td><td>@(dispatchCase.AssignedUnits.Any() ? string.Join(", ", dispatchCase.AssignedUnits.Select(u => u.Identifier)) : "None")</td><td><span class="state-label waiting">Waiting for @string.Join(" / ", dispatchCase.WaitingUnitTypes)</span></td></tr>
+            <tr><td><strong class="case-number">@dispatchCase.CaseNumber</strong><small>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM, HH:mm")</small></td><td><strong>@dispatchCase.IncidentType</strong><small>@dispatchCase.Location</small></td><td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span>@if (dispatchCase.Priority != dispatchCase.CalculatedPriority) { <small>Calculated: @dispatchCase.CalculatedPriority</small> }<small><a asp-page="/Cases/OverridePriority" asp-route-caseId="@dispatchCase.Id">Override</a></small></td><td>@string.Join(", ", dispatchCase.RequiredUnitTypes)</td><td>@(dispatchCase.AssignedUnits.Any() ? string.Join(", ", dispatchCase.AssignedUnits.Select(u => u.Identifier)) : "None")</td><td><span class="state-label waiting">Waiting for @string.Join(" / ", dispatchCase.WaitingUnitTypes)</span></td></tr>
         }
         </tbody></table></div>
     </section>
@@ -42,7 +46,7 @@
         <div class="table-wrap"><table class="case-table"><thead><tr><th>Case</th><th>Incident and location</th><th>Priority</th><th>Required response</th><th>Assigned units</th><th>Status</th></tr></thead><tbody>
         @foreach (var dispatchCase in respondingCases)
         {
-            <tr><td><strong class="case-number">@dispatchCase.CaseNumber</strong><small>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM, HH:mm")</small></td><td><strong>@dispatchCase.IncidentType</strong><small>@dispatchCase.Location</small></td><td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td><td>@string.Join(", ", dispatchCase.RequiredUnitTypes)</td><td><strong>@string.Join(", ", dispatchCase.AssignedUnits.Select(u => u.Identifier))</strong></td><td><span class="badge status inprogress">In Progress</span></td></tr>
+            <tr><td><strong class="case-number">@dispatchCase.CaseNumber</strong><small>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM, HH:mm")</small></td><td><strong>@dispatchCase.IncidentType</strong><small>@dispatchCase.Location</small></td><td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span>@if (dispatchCase.Priority != dispatchCase.CalculatedPriority) { <small>Calculated: @dispatchCase.CalculatedPriority</small> }<small><a asp-page="/Cases/OverridePriority" asp-route-caseId="@dispatchCase.Id">Override</a></small></td><td>@string.Join(", ", dispatchCase.RequiredUnitTypes)</td><td><strong>@string.Join(", ", dispatchCase.AssignedUnits.Select(u => u.Identifier))</strong></td><td><span class="badge status inprogress">In Progress</span></td></tr>
         }
         </tbody></table></div>
     }

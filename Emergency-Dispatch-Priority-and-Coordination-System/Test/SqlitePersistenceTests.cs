@@ -30,6 +30,7 @@ public sealed class SqlitePersistenceTests
             Assert.AreEqual(created.CaseNumber, restored.CaseNumber);
             Assert.AreEqual("Alex Morgan", restored.CallerName);
             Assert.AreEqual(Priority.High, restored.Priority);
+            Assert.AreEqual(Priority.High, restored.CalculatedPriority);
             Assert.AreEqual(CaseStatus.InProgress, restored.Status);
             Assert.AreEqual(created.AssignedUnits.Single().Identifier, restored.AssignedUnits.Single().Identifier);
             Assert.AreEqual(UnitAvailability.Unavailable, restored.AssignedUnits.Single().Availability);

@@ -1,0 +1,38 @@
+@page
+@model DispatchWeb.Pages.Cases.OverridePriorityModel
+@{ ViewData["Title"] = "Override priority"; }
+
+<header class="page-heading">
+    <div>
+        <p class="eyebrow">Authorised dispatcher action</p>
+        <h1>Override Case Priority</h1>
+        <p>Use this only when the calculated priority does not correctly represent the emergency.</p>
+    </div>
+</header>
+
+<section class="form-card">
+    <div class="section-heading">
+        <div><h2>@Model.DispatchCase.CaseNumber</h2><p>@Model.DispatchCase.IncidentType at @Model.DispatchCase.Location</p></div>
+    </div>
+
+    <p><strong>Calculated priority:</strong> @Model.DispatchCase.CalculatedPriority</p>
+    <p><strong>Current priority:</strong> @Model.DispatchCase.Priority</p>
+
+    <form method="post">
+        <input type="hidden" asp-for="CaseId" />
+        <div asp-validation-summary="ModelOnly" class="alert alert-error"></div>
+        <div class="form-field">
+            <label asp-for="Input.NewPriority"></label>
+            <select asp-for="Input.NewPriority" asp-items="Html.GetEnumSelectList<Priority>()"></select>
+        </div>
+        <div class="form-field">
+            <label asp-for="Input.Reason"></label>
+            <textarea asp-for="Input.Reason" rows="4" placeholder="Explain why the calculated priority is unsuitable."></textarea>
+            <span asp-validation-for="Input.Reason" class="field-validation"></span>
+        </div>
+        <div class="form-actions">
+            <button class="button" type="submit">Save Priority Override</button>
+            <a class="button button-secondary" asp-page="/Index">Cancel</a>
+        </div>
+    </form>
+</section>

@@ -21,6 +21,7 @@ public sealed class SqliteDatabase
         CreateDatabaseDirectory();
         _encryptor = new LocalDataEncryptor(encryptionKeyPath ?? GetDefaultKeyPath());
         CreateTables();
+        ApplySchemaUpdates();
         EncryptExistingValues();
         SeedDepartments();
         LoadData();
@@ -259,9 +260,11 @@ public sealed class SqliteDatabase
             command.Transaction = transaction;
             command.CommandText = """
                 INSERT INTO Cases
-                    (Id, CallerName, CallerPhone, IncidentType, Description, Location, RecordedAt, Severity, Priority, Status)
+                    (Id, CallerName, CallerPhone, IncidentType, Description, Location, RecordedAt,
+                     Severity, CalculatedPriority, Priority, Status)
                 VALUES
-                    ($id, $callerName, $callerPhone, $incidentType, $description, $location, $recordedAt, $severity, $priority, $status)
+                    ($id, $callerName, $callerPhone, $incidentType, $description, $location, $recordedAt,
+                     $severity, $calculatedPriority, $priority, $status)
                 ON CONFLICT(Id) DO UPDATE SET
                     CallerName = excluded.CallerName,
                     CallerPhone = excluded.CallerPhone,
@@ -270,6 +273,7 @@ public sealed class SqliteDatabase
                     Location = excluded.Location,
                     RecordedAt = excluded.RecordedAt,
                     Severity = excluded.Severity,
+                    CalculatedPriority = excluded.CalculatedPriority,
                     Priority = excluded.Priority,
                     Status = excluded.Status;
                 """;
@@ -281,6 +285,7 @@ public sealed class SqliteDatabase
             command.Parameters.AddWithValue("$location", _encryptor.Encrypt(dispatchCase.Location));
             command.Parameters.AddWithValue("$recordedAt", dispatchCase.RecordedAt.ToString("O"));
             command.Parameters.AddWithValue("$severity", (int)dispatchCase.Severity);
+            command.Parameters.AddWithValue("$calculatedPriority", (int)dispatchCase.CalculatedPriority);
             command.Parameters.AddWithValue("$priority", (int)dispatchCase.Priority);
             command.Parameters.AddWithValue("$status", (int)dispatchCase.Status);
             command.ExecuteNonQuery();
@@ -366,6 +371,7 @@ public sealed class SqliteDatabase
                 Location TEXT NOT NULL,
                 RecordedAt TEXT NOT NULL,
                 Severity INTEGER NOT NULL,
+                CalculatedPriority INTEGER NOT NULL,
                 Priority INTEGER NOT NULL,
                 Status INTEGER NOT NULL
             );
@@ -519,7 +525,7 @@ public sealed class SqliteDatabase
         {
             command.CommandText = """
                 SELECT Id, CallerName, CallerPhone, IncidentType, Description, Location,
-                       RecordedAt, Severity, Priority, Status
+                       RecordedAt, Severity, CalculatedPriority, Priority, Status
                 FROM Cases ORDER BY RecordedAt;
                 """;
             using var reader = command.ExecuteReader();
@@ -530,7 +536,8 @@ public sealed class SqliteDatabase
                     _encryptor.Decrypt(reader.GetString(2)), reader.GetString(3),
                     _encryptor.Decrypt(reader.GetString(4)), _encryptor.Decrypt(reader.GetString(5)),
                     ParseDate(reader.GetString(6)),
-                    (Severity)reader.GetInt32(7), (Priority)reader.GetInt32(8), (CaseStatus)reader.GetInt32(9)));
+                    (Severity)reader.GetInt32(7), (Priority)reader.GetInt32(8),
+                    (Priority)reader.GetInt32(9), (CaseStatus)reader.GetInt32(10)));
             }
         }
 
@@ -538,7 +545,8 @@ public sealed class SqliteDatabase
         {
             var requiredTypes = LoadRequiredTypes(connection, row.Id);
             var dispatchCase = new Case(row.Id, row.CallerName, row.CallerPhone, row.IncidentType,
-                row.Description, row.Location, row.Severity, requiredTypes, row.RecordedAt, row.Priority, row.Status);
+                row.Description, row.Location, row.Severity, requiredTypes, row.RecordedAt,
+                row.CalculatedPriority, row.Priority, row.Status);
             LoadAssignments(connection, dispatchCase);
             _cases.Add(dispatchCase.Id, dispatchCase);
         }
@@ -585,6 +593,36 @@ public sealed class SqliteDatabase
 
     private static DateTimeOffset ParseDate(string value) =>
         DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
+
+    private void ApplySchemaUpdates()
+    {
+        using var connection = OpenConnection();
+        using var check = connection.CreateCommand();
+        check.CommandText = "PRAGMA table_info(Cases);";
+        using var reader = check.ExecuteReader();
+        var hasCalculatedPriority = false;
+        while (reader.Read())
+            hasCalculatedPriority |= reader.GetString(1).Equals("CalculatedPriority", StringComparison.OrdinalIgnoreCase);
+        reader.Close();
+        if (hasCalculatedPriority) return;
+
+        // Older local databases stored only the effective priority. Preserve that value as the
+        // original calculation when adding override support.
+        using var update = connection.CreateCommand();
+        update.CommandText = """
+            ALTER TABLE Cases ADD COLUMN CalculatedPriority INTEGER NOT NULL DEFAULT 0;
+            UPDATE Cases SET CalculatedPriority = Priority;
+            """;
+        try
+        {
+            update.ExecuteNonQuery();
+        }
+        catch (SqliteException exception) when (exception.SqliteErrorCode == 1 &&
+                                                  exception.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
+        {
+            // Another application instance completed the same one-time migration first.
+        }
+    }
 
     private string GetDefaultKeyPath()
     {
@@ -668,5 +706,5 @@ public sealed class SqliteDatabase
 
     private sealed record StoredCase(Guid Id, string CallerName, string CallerPhone, string IncidentType,
         string Description, string Location, DateTimeOffset RecordedAt, Severity Severity,
-        Priority Priority, CaseStatus Status);
+        Priority CalculatedPriority, Priority Priority, CaseStatus Status);
 }

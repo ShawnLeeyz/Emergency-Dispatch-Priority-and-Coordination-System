@@ -22,7 +22,7 @@ public sealed class DispatchService
         ArgumentNullException.ThrowIfNull(request);
         var dispatchCase = new Case(request.CallerName, request.CallerPhone, request.IncidentType,
             request.Description, request.Location, request.Severity, request.RequiredUnitTypes);
-        dispatchCase.SetPriority(_priorityStrategy.Calculate(dispatchCase));
+        dispatchCase.SetCalculatedPriority(_priorityStrategy.Calculate(dispatchCase));
         lock (_dispatchLock)
         {
             _cases.Add(dispatchCase);
@@ -71,6 +71,28 @@ public sealed class DispatchService
             _departments.Save(unit);
             AddAudit(AuditEventTypes.UnitUpdated, performedBy, null, unit.Identifier, oldValue,
                 $"Location: {unit.Location}; Personnel: {unit.PersonnelCount}", "Unit details updated.");
+        }
+    }
+
+    public void OverridePriority(Guid caseId, Priority newPriority, string reason, string performedBy)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            throw new ArgumentException("A reason is required when overriding priority.", nameof(reason));
+
+        lock (_dispatchLock)
+        {
+            var dispatchCase = _cases.Get(caseId)
+                ?? throw new KeyNotFoundException("The selected case no longer exists.");
+            if (dispatchCase.Status == CaseStatus.Closed)
+                throw new InvalidOperationException("A closed case cannot have its priority overridden.");
+            if (dispatchCase.Priority == newPriority)
+                throw new ArgumentException("Select a priority that is different from the current priority.", nameof(newPriority));
+
+            var oldPriority = dispatchCase.Priority;
+            dispatchCase.OverridePriority(newPriority);
+            _cases.Save(dispatchCase);
+            AddAudit(AuditEventTypes.PriorityOverridden, performedBy, dispatchCase, null,
+                oldPriority.ToString(), newPriority.ToString(), reason.Trim());
         }
     }
 

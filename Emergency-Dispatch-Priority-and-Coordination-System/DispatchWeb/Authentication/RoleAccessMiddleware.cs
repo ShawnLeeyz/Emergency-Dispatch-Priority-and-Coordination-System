@@ -26,7 +26,9 @@ public sealed class RoleAccessMiddleware(RequestDelegate next)
         var role = context.User.Role();
         var allowed = role switch
         {
-            DemoRoles.Dispatcher => path == "/" || path.StartsWith("/Cases/Create", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/History", StringComparison.OrdinalIgnoreCase),
+            DemoRoles.Dispatcher => path == "/" || path.StartsWith("/Cases/Create", StringComparison.OrdinalIgnoreCase) ||
+                                    path.StartsWith("/Cases/OverridePriority", StringComparison.OrdinalIgnoreCase) ||
+                                    path.StartsWith("/History", StringComparison.OrdinalIgnoreCase),
             DemoRoles.Department => IsDepartmentPath(context, path) || path.StartsWith("/Units", StringComparison.OrdinalIgnoreCase),
             DemoRoles.ResponseUnit => IsOwnUnitPath(context, path),
             _ => false

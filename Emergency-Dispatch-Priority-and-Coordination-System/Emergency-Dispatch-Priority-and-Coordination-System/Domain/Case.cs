@@ -32,6 +32,7 @@ public sealed class Case
     public string Location { get; }
     public DateTimeOffset RecordedAt { get; }
     public Severity Severity { get; }
+    public Priority CalculatedPriority { get; private set; }
     public Priority Priority { get; private set; }
     public CaseStatus Status { get; private set; } = CaseStatus.Open;
     public IReadOnlyCollection<ResponseUnitType> RequiredUnitTypes { get; }
@@ -43,13 +44,13 @@ public sealed class Case
         string location, Severity severity, IEnumerable<ResponseUnitType> requiredUnitTypes,
         DateTimeOffset? recordedAt = null)
         : this(Guid.NewGuid(), callerName, callerPhone, incidentType, description, location, severity,
-            requiredUnitTypes, recordedAt ?? DateTimeOffset.UtcNow, Priority.Low, CaseStatus.Open)
+            requiredUnitTypes, recordedAt ?? DateTimeOffset.UtcNow, Priority.Low, Priority.Low, CaseStatus.Open)
     {
     }
 
     internal Case(Guid id, string callerName, string callerPhone, string incidentType, string description,
         string location, Severity severity, IEnumerable<ResponseUnitType> requiredUnitTypes,
-        DateTimeOffset recordedAt, Priority priority, CaseStatus status)
+        DateTimeOffset recordedAt, Priority calculatedPriority, Priority priority, CaseStatus status)
     {
         Id = id;
         CallerName = Require(callerName, nameof(callerName));
@@ -62,6 +63,7 @@ public sealed class Case
             ?? throw new ArgumentNullException(nameof(requiredUnitTypes));
         if (RequiredUnitTypes.Count == 0) throw new ArgumentException("At least one response type is required.", nameof(requiredUnitTypes));
         RecordedAt = recordedAt;
+        CalculatedPriority = calculatedPriority;
         Priority = priority;
         Status = status;
     }
@@ -73,7 +75,13 @@ public sealed class Case
         _assignments.Add(assignment);
     }
 
-    public void SetPriority(Priority priority) => Priority = priority;
+    public void SetCalculatedPriority(Priority priority)
+    {
+        CalculatedPriority = priority;
+        Priority = priority;
+    }
+
+    public void OverridePriority(Priority priority) => Priority = priority;
 
     public bool Assign(Unit unit)
     {
