@@ -1,16 +1,15 @@
-using System.Collections.Concurrent;
 using Emergency_Dispatch_Priority_and_Coordination_System.Application;
 using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Infrastructure;
 
-public sealed class InMemoryCaseRepository : ICaseRepository
+public sealed class SqliteCaseRepository(SqliteDatabase database) : ICaseRepository
 {
-    private readonly ConcurrentDictionary<Guid, Case> _cases = new();
-    public void Add(Case dispatchCase) => _cases.TryAdd(dispatchCase.Id, dispatchCase);
-    public void Save(Case dispatchCase) => _cases[dispatchCase.Id] = dispatchCase;
-    public Case? Get(Guid id) => _cases.GetValueOrDefault(id);
-    public IReadOnlyCollection<Case> GetAll() => _cases.Values.OrderByDescending(c => c.RecordedAt).ToArray();
+    public void Add(Case dispatchCase) => database.AddCase(dispatchCase);
+    public void Save(Case dispatchCase) => database.SaveCase(dispatchCase);
+    public Case? Get(Guid id) => database.GetCase(id);
+    public IReadOnlyCollection<Case> GetAll() => database.GetCases();
+
     public IReadOnlyCollection<Case> Search(string? callerName, string? caseId, DateOnly? date)
     {
         var hasCaller = !string.IsNullOrWhiteSpace(callerName);

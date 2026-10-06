@@ -38,7 +38,10 @@ public sealed class DispatchService
             if (unit.Type != departmentType)
                 throw new InvalidOperationException("That unit is managed by a different department.");
             dispatchCase.SignOff(unitId);
-            AssignNextWaitingCase(unit);
+            var nextCase = AssignNextWaitingCase(unit);
+            _cases.Save(dispatchCase);
+            if (nextCase is not null) _cases.Save(nextCase);
+            _departments.Save(unit);
         }
     }
 
@@ -49,19 +52,25 @@ public sealed class DispatchService
             var unit = _departments.Get(departmentType)?.Units.SingleOrDefault(candidate => candidate.Id == unitId)
                 ?? throw new KeyNotFoundException("The selected response unit could not be found in that department.");
             unit.UpdateDetails(location, personnelCount);
+            _departments.Save(unit);
         }
     }
 
     private void AssignAvailableUnits(Case dispatchCase)
     {
+        var assigned = false;
         foreach (var responseType in dispatchCase.WaitingUnitTypes)
         {
             var unit = _departments.Get(responseType)?.Units.FirstOrDefault(candidate => candidate.Availability == UnitAvailability.Available);
-            if (unit is not null && dispatchCase.Assign(unit)) NotifySafely(unit, dispatchCase);
+            if (unit is null || !dispatchCase.Assign(unit)) continue;
+            assigned = true;
+            _departments.Save(unit);
+            NotifySafely(unit, dispatchCase);
         }
+        if (assigned) _cases.Save(dispatchCase);
     }
 
-    private void AssignNextWaitingCase(Unit availableUnit)
+    private Case? AssignNextWaitingCase(Unit availableUnit)
     {
         var waitingCase = _cases.GetAll()
             .Where(dispatchCase => dispatchCase.IsWaitingFor(availableUnit.Type))
@@ -69,8 +78,9 @@ public sealed class DispatchService
             .ThenBy(dispatchCase => dispatchCase.Id)
             .FirstOrDefault();
 
-        if (waitingCase is not null && waitingCase.Assign(availableUnit))
-            NotifySafely(availableUnit, waitingCase);
+        if (waitingCase is null || !waitingCase.Assign(availableUnit)) return null;
+        NotifySafely(availableUnit, waitingCase);
+        return waitingCase;
     }
 
     private void NotifySafely(Unit unit, Case dispatchCase)

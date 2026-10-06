@@ -6,4 +6,5 @@ public interface IDepartmentRepository
 {
     IReadOnlyCollection<Department> GetAll();
     Department? Get(ResponseUnitType type);
+    void Save(Unit unit);
 }

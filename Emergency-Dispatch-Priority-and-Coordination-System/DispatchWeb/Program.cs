@@ -24,9 +24,12 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton<DemoAccountStore>();
-builder.Services.AddSingleton<ICaseRepository, InMemoryCaseRepository>();
-builder.Services.AddSingleton<IDepartmentRepository, InMemoryDepartmentRepository>();
-builder.Services.AddSingleton<IDispatchNotifier, InMemoryDispatchNotifier>();
+var databasePath = Path.Combine(builder.Environment.ContentRootPath, "Data", "dispatch.db");
+var connectionString = builder.Configuration.GetConnectionString("DispatchDatabase") ?? $"Data Source={databasePath}";
+builder.Services.AddSingleton(new SqliteDatabase(connectionString));
+builder.Services.AddSingleton<ICaseRepository, SqliteCaseRepository>();
+builder.Services.AddSingleton<IDepartmentRepository, SqliteDepartmentRepository>();
+builder.Services.AddSingleton<IDispatchNotifier, SqliteDispatchNotifier>();
 builder.Services.AddSingleton<IPriorityStrategy, KeywordSeverityPriority>();
 builder.Services.AddSingleton<DispatchService>();
 
@@ -39,3 +42,6 @@ app.UseAuthorization();
 app.UseMiddleware<RoleAccessMiddleware>();
 app.MapRazorPages();
 app.Run();
+
+// Allows the test project to start the real web application in memory.
+public partial class Program;

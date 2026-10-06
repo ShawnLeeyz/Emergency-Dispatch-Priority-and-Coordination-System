@@ -14,4 +14,5 @@ public sealed class InMemoryDepartmentRepository : IDepartmentRepository
 
     public IReadOnlyCollection<Department> GetAll() => _departments;
     public Department? Get(ResponseUnitType type) => _departments.SingleOrDefault(d => d.Type == type);
+    public void Save(Unit unit) { }
 }

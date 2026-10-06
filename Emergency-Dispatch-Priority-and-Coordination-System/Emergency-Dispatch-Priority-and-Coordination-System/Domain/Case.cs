@@ -23,7 +23,7 @@ public sealed class Case
 {
     private readonly List<CaseAssignment> _assignments = [];
 
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; }
     public string CaseNumber => $"CASE-{Id.ToString()[..8].ToUpperInvariant()}";
     public string CallerName { get; }
     public string CallerPhone { get; }
@@ -42,7 +42,16 @@ public sealed class Case
     public Case(string callerName, string callerPhone, string incidentType, string description,
         string location, Severity severity, IEnumerable<ResponseUnitType> requiredUnitTypes,
         DateTimeOffset? recordedAt = null)
+        : this(Guid.NewGuid(), callerName, callerPhone, incidentType, description, location, severity,
+            requiredUnitTypes, recordedAt ?? DateTimeOffset.UtcNow, Priority.Low, CaseStatus.Open)
     {
+    }
+
+    internal Case(Guid id, string callerName, string callerPhone, string incidentType, string description,
+        string location, Severity severity, IEnumerable<ResponseUnitType> requiredUnitTypes,
+        DateTimeOffset recordedAt, Priority priority, CaseStatus status)
+    {
+        Id = id;
         CallerName = Require(callerName, nameof(callerName));
         CallerPhone = Require(callerPhone, nameof(callerPhone));
         IncidentType = Require(incidentType, nameof(incidentType));
@@ -52,7 +61,16 @@ public sealed class Case
         RequiredUnitTypes = requiredUnitTypes?.Distinct().ToArray()
             ?? throw new ArgumentNullException(nameof(requiredUnitTypes));
         if (RequiredUnitTypes.Count == 0) throw new ArgumentException("At least one response type is required.", nameof(requiredUnitTypes));
-        RecordedAt = recordedAt ?? DateTimeOffset.UtcNow;
+        RecordedAt = recordedAt;
+        Priority = priority;
+        Status = status;
+    }
+
+    internal void RestoreAssignment(Unit unit, DateTimeOffset assignedAt, DateTimeOffset? signedOffAt)
+    {
+        var assignment = new CaseAssignment(unit, assignedAt);
+        if (signedOffAt.HasValue) assignment.SignOff(signedOffAt.Value);
+        _assignments.Add(assignment);
     }
 
     public void SetPriority(Priority priority) => Priority = priority;

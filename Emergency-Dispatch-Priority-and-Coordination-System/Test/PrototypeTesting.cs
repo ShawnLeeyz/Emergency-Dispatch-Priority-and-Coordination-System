@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using DispatchWeb.Authentication;
+using DispatchWeb.Pages.Departments;
 using Emergency_Dispatch_Priority_and_Coordination_System.Application;
 using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 using Emergency_Dispatch_Priority_and_Coordination_System.Infrastructure;
@@ -137,7 +138,8 @@ public sealed class PrototypeTesting
     }
 
     [TestMethod]
-    public void TC05_MultiDepartmentSubmission_CompletesWithinTwoSecondsWithoutDataLoss()
+    [TestCategory("In-process performance")]
+    public void TC05_InProcessMultiDepartmentSubmission_CompletesWithinTwoSecondsWithoutDataLoss()
     {
         var cases = new InMemoryCaseRepository();
         var service = CreateService(cases);
@@ -215,49 +217,111 @@ public sealed class PrototypeTesting
     }
 
     [TestMethod]
-    public async Task TC08_ConcurrentSubmissions_CannotAssignOneUnitToTwoCases()
+    public void TC07_MultipleWaitingCases_AssignsTheOldestCaseFirst()
     {
         var cases = new InMemoryCaseRepository();
-        var onlyUnit = new Unit("A-01", ResponseUnitType.Medical, "Central", 2);
+        var unit = new Unit("F-01", ResponseUnitType.Fire, "Central", 4);
         var departments = new TestDepartmentRepository(
-            new Department(ResponseUnitType.Medical, "Medical", [onlyUnit]));
+            new Department(ResponseUnitType.Fire, "Fire", [unit]));
         var service = CreateService(cases, departments);
-        using var start = new ManualResetEventSlim(false);
+        var activeCase = service.CreateAndDispatch(Request(caller: "Active", requiredTypes: [ResponseUnitType.Fire]));
+        var oldestWaiting = WaitingCase("Oldest", DateTimeOffset.UtcNow.AddMinutes(-2));
+        var newestWaiting = WaitingCase("Newest", DateTimeOffset.UtcNow.AddMinutes(-1));
+        cases.Add(newestWaiting);
+        cases.Add(oldestWaiting);
 
-        Task<Case> Submit(string caller) => Task.Run(() =>
-        {
-            start.Wait();
-            return service.CreateAndDispatch(Request(caller: caller, requiredTypes: [ResponseUnitType.Medical]));
-        });
+        service.SignOffUnit(activeCase.Id, unit.Id, ResponseUnitType.Fire);
 
-        var firstTask = Submit("Caller one");
-        var secondTask = Submit("Caller two");
-        start.Set();
-        var results = await Task.WhenAll(firstTask, secondTask);
-
-        Assert.AreEqual(1, results.Count(dispatchCase => dispatchCase.AssignedUnits.Contains(onlyUnit)));
-        Assert.AreEqual(1, results.Count(dispatchCase => dispatchCase.Status == CaseStatus.Open));
-        Assert.AreEqual(UnitAvailability.Unavailable, onlyUnit.Availability);
-        Assert.HasCount(2, cases.GetAll());
-        Assert.AreEqual(results.Single(dispatchCase => dispatchCase.AssignedUnits.Contains(onlyUnit)).Id, onlyUnit.AssignedCaseId);
+        Assert.AreSame(unit, oldestWaiting.AssignedUnits.Single());
+        Assert.IsEmpty(newestWaiting.AssignedUnits);
+        Assert.AreEqual(CaseStatus.Open, newestWaiting.Status);
     }
 
     [TestMethod]
-    public void TC09_DepartmentProjection_ContainsOnlyItsCasesAndIncludesNewCasesAfterRefresh()
+    public async Task TC08_ConcurrentSubmissions_CannotAssignOneUnitToTwoCases()
+    {
+        for (var attempt = 1; attempt <= 25; attempt++)
+        {
+            var cases = new InMemoryCaseRepository();
+            var onlyUnit = new Unit("A-01", ResponseUnitType.Medical, "Central", 2);
+            var departments = new TestDepartmentRepository(
+                new Department(ResponseUnitType.Medical, "Medical", [onlyUnit]));
+            var service = CreateService(cases, departments);
+            using var start = new ManualResetEventSlim(false);
+
+            Task<Case> Submit(string caller) => Task.Run(() =>
+            {
+                start.Wait();
+                return service.CreateAndDispatch(Request(caller: caller, requiredTypes: [ResponseUnitType.Medical]));
+            });
+
+            var firstTask = Submit("Caller one");
+            var secondTask = Submit("Caller two");
+            start.Set();
+            var results = await Task.WhenAll(firstTask, secondTask);
+
+            Assert.AreEqual(1, results.Count(dispatchCase => dispatchCase.AssignedUnits.Contains(onlyUnit)),
+                $"Attempt {attempt} assigned the unit incorrectly.");
+            Assert.AreEqual(1, results.Count(dispatchCase => dispatchCase.Status == CaseStatus.Open));
+            Assert.AreEqual(UnitAvailability.Unavailable, onlyUnit.Availability);
+            Assert.HasCount(2, cases.GetAll());
+            Assert.AreEqual(results.Single(dispatchCase => dispatchCase.AssignedUnits.Contains(onlyUnit)).Id,
+                onlyUnit.AssignedCaseId);
+        }
+    }
+
+    [TestMethod]
+    public void TC09_DepartmentDashboard_ContainsOnlyItsCasesAndIncludesNewCasesAfterRefresh()
     {
         var cases = new InMemoryCaseRepository();
-        var service = CreateService(cases);
+        var departments = StandardDepartments();
+        var notifier = new InMemoryDispatchNotifier();
+        var service = CreateService(cases, departments, notifier);
         var policeCase = service.CreateAndDispatch(Request(caller: "Police one", requiredTypes: [ResponseUnitType.Police]));
         service.CreateAndDispatch(Request(caller: "Fire one", requiredTypes: [ResponseUnitType.Fire]));
+        var dashboard = new DashboardModel(cases, departments, notifier);
 
-        var initialPoliceDashboard = ActiveCasesFor(cases, ResponseUnitType.Police);
+        dashboard.OnGet("Police");
+        var initialPoliceDashboard = dashboard.Cases;
         var secondPoliceCase = service.CreateAndDispatch(Request(caller: "Police two", requiredTypes: [ResponseUnitType.Police]));
-        var refreshedPoliceDashboard = ActiveCasesFor(cases, ResponseUnitType.Police);
+        dashboard.OnGet("Police");
+        var refreshedPoliceDashboard = dashboard.Cases;
 
-        CollectionAssert.AreEqual(new[] { policeCase }, initialPoliceDashboard);
-        CollectionAssert.AreEquivalent(new[] { policeCase, secondPoliceCase }, refreshedPoliceDashboard);
+        CollectionAssert.AreEqual(new[] { policeCase }, initialPoliceDashboard.ToArray());
+        CollectionAssert.AreEquivalent(new[] { policeCase, secondPoliceCase }, refreshedPoliceDashboard.ToArray());
         Assert.IsTrue(refreshedPoliceDashboard.All(dispatchCase =>
             dispatchCase.RequiredUnitTypes.Contains(ResponseUnitType.Police)));
+    }
+
+    [TestMethod]
+    public void FR03_DepartmentCanUpdateUnitLocationAndPersonnelCount()
+    {
+        var cases = new InMemoryCaseRepository();
+        var departments = StandardDepartments();
+        var service = CreateService(cases, departments);
+        var unit = departments.Get(ResponseUnitType.Police)!.Units.First();
+
+        service.UpdateUnit(ResponseUnitType.Police, unit.Id, "Airport station", 5);
+
+        Assert.AreEqual("Airport station", unit.Location);
+        Assert.AreEqual(5, unit.PersonnelCount);
+    }
+
+    [TestMethod]
+    public void FR03_InvalidUnitUpdate_IsRejectedWithoutChangingTheUnit()
+    {
+        var cases = new InMemoryCaseRepository();
+        var departments = StandardDepartments();
+        var service = CreateService(cases, departments);
+        var unit = departments.Get(ResponseUnitType.Police)!.Units.First();
+        var originalLocation = unit.Location;
+        var originalPersonnel = unit.PersonnelCount;
+
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            service.UpdateUnit(ResponseUnitType.Police, unit.Id, "", 0));
+
+        Assert.AreEqual(originalLocation, unit.Location);
+        Assert.AreEqual(originalPersonnel, unit.PersonnelCount);
     }
 
     [TestMethod]
@@ -440,16 +504,15 @@ public sealed class PrototypeTesting
         new(caller, "021 123 4567", "Report", "Details", "25 Queen Street",
             Severity.Low, [ResponseUnitType.Police], recordedAt);
 
-    private static Case[] ActiveCasesFor(ICaseRepository cases, ResponseUnitType departmentType) =>
-        cases.GetAll()
-            .Where(dispatchCase => dispatchCase.Status != CaseStatus.Closed &&
-                                   dispatchCase.RequiredUnitTypes.Contains(departmentType))
-            .ToArray();
+    private static Case WaitingCase(string caller, DateTimeOffset recordedAt) =>
+        new(caller, "021 123 4567", "Fire", "Waiting for a unit", "25 Queen Street",
+            Severity.Medium, [ResponseUnitType.Fire], recordedAt);
 
     private sealed class TestDepartmentRepository(params Department[] departments) : IDepartmentRepository
     {
         public IReadOnlyCollection<Department> GetAll() => departments;
         public Department? Get(ResponseUnitType type) => departments.SingleOrDefault(department => department.Type == type);
+        public void Save(Unit unit) { }
     }
 
     private sealed class ThrowingNotifier : IDispatchNotifier
