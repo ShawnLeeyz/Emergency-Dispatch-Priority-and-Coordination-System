@@ -33,6 +33,9 @@ public sealed class WebApplicationTests
     [DataRow("dispatch01", "dispatch-demo", "/Admin/AuditLog", HttpStatusCode.Redirect)]
     [DataRow("dispatch01", "dispatch-demo", "/Cases/OverridePriority?caseId=00000000-0000-0000-0000-000000000001", HttpStatusCode.NotFound)]
     [DataRow("police01", "department-demo", "/Cases/OverridePriority?caseId=00000000-0000-0000-0000-000000000001", HttpStatusCode.Redirect)]
+    [DataRow("dispatch01", "dispatch-demo", "/Cases/Details/00000000-0000-0000-0000-000000000001", HttpStatusCode.NotFound)]
+    [DataRow("police01", "department-demo", "/Cases/Details/00000000-0000-0000-0000-000000000001", HttpStatusCode.NotFound)]
+    [DataRow("pol01", "unit-demo", "/Cases/Details/00000000-0000-0000-0000-000000000001", HttpStatusCode.NotFound)]
     public async Task LoginAndRoleAccess_UseTheRealCookieAndPagePipeline(
         string username, string password, string path, HttpStatusCode expectedStatus)
     {

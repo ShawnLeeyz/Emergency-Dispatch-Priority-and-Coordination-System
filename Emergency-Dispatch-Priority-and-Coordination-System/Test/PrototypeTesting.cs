@@ -367,11 +367,14 @@ public sealed class PrototypeTesting
 
     [TestMethod]
     [DataRow(DemoRoles.Dispatcher, null, "/Cases/Create", null, true)]
+    [DataRow(DemoRoles.Dispatcher, null, "/Cases/Details/00000000-0000-0000-0000-000000000001", null, true)]
     [DataRow(DemoRoles.Dispatcher, null, "/Departments/Police", "Police", false)]
     [DataRow(DemoRoles.Department, "Police", "/Departments/Police", "Police", true)]
     [DataRow(DemoRoles.Department, "Police", "/Departments/Fire", "Fire", false)]
+    [DataRow(DemoRoles.Department, "Police", "/Cases/Details/00000000-0000-0000-0000-000000000001", null, true)]
     [DataRow(DemoRoles.ResponseUnit, "POL-01", "/ResponseUnits/POL-01", null, true)]
     [DataRow(DemoRoles.ResponseUnit, "POL-01", "/ResponseUnits/POL-02", null, false)]
+    [DataRow(DemoRoles.ResponseUnit, "POL-01", "/Cases/Details/00000000-0000-0000-0000-000000000001", null, true)]
     public async Task TC12_RoleAccessMiddleware_RestrictsPagesToPermittedRoleAndScope(
         string role,
         string? scope,

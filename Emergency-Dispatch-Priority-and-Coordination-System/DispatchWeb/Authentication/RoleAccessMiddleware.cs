@@ -28,9 +28,12 @@ public sealed class RoleAccessMiddleware(RequestDelegate next)
         {
             DemoRoles.Dispatcher => path == "/" || path.StartsWith("/Cases/Create", StringComparison.OrdinalIgnoreCase) ||
                                     path.StartsWith("/Cases/OverridePriority", StringComparison.OrdinalIgnoreCase) ||
+                                    path.StartsWith("/Cases/Details", StringComparison.OrdinalIgnoreCase) ||
                                     path.StartsWith("/History", StringComparison.OrdinalIgnoreCase),
-            DemoRoles.Department => IsDepartmentPath(context, path) || path.StartsWith("/Units", StringComparison.OrdinalIgnoreCase),
-            DemoRoles.ResponseUnit => IsOwnUnitPath(context, path),
+            DemoRoles.Department => IsDepartmentPath(context, path) || path.StartsWith("/Units", StringComparison.OrdinalIgnoreCase) ||
+                                    path.StartsWith("/Cases/Details", StringComparison.OrdinalIgnoreCase),
+            DemoRoles.ResponseUnit => IsOwnUnitPath(context, path) ||
+                                      path.StartsWith("/Cases/Details", StringComparison.OrdinalIgnoreCase),
             _ => false
         };
 

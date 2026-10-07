@@ -20,7 +20,7 @@
         <div class="table-wrap"><table class="case-table"><thead><tr><th>Case</th><th>Incident and location</th><th>Priority</th><th>Other response</th><th>Current state</th></tr></thead><tbody>
         @foreach (var dispatchCase in waitingCases)
         {
-            <tr><td><strong class="case-number">@dispatchCase.CaseNumber</strong><small>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM, HH:mm")</small></td><td><strong>@dispatchCase.IncidentType</strong><small>@dispatchCase.Location</small></td><td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td><td>@string.Join(", ", dispatchCase.RequiredUnitTypes.Where(t => t != Model.DepartmentType))</td><td><span class="state-label waiting">Waiting for @Model.Department.Name</span></td></tr>
+            <tr><td><a class="case-number" asp-page="/Cases/Details" asp-route-caseId="@dispatchCase.Id"><strong>@dispatchCase.CaseNumber</strong></a><small>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM, HH:mm")</small></td><td><strong>@dispatchCase.IncidentType</strong><small>@dispatchCase.Location</small></td><td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td><td>@string.Join(", ", dispatchCase.RequiredUnitTypes.Where(t => t != Model.DepartmentType))</td><td><span class="state-label waiting">Waiting for @Model.Department.Name</span></td></tr>
         }
         </tbody></table></div>
     </section>
@@ -39,7 +39,7 @@
         {
             var activeUnit = dispatchCase.AssignedUnits.SingleOrDefault(unit => unit.Type == Model.DepartmentType);
             var completed = dispatchCase.Assignments.SingleOrDefault(a => a.Unit.Type == Model.DepartmentType && !a.IsActive);
-            <tr><td><strong class="case-number">@dispatchCase.CaseNumber</strong><small>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM, HH:mm")</small></td><td><strong>@dispatchCase.IncidentType</strong><small>@dispatchCase.Location</small></td><td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td><td><strong>@(activeUnit?.Identifier ?? completed?.Unit.Identifier ?? "Not assigned")</strong></td><td>@if (activeUnit is not null) { <span class="state-label active">Response active</span> } else { <span class="state-label complete">Signed off</span> }</td></tr>
+            <tr><td><a class="case-number" asp-page="/Cases/Details" asp-route-caseId="@dispatchCase.Id"><strong>@dispatchCase.CaseNumber</strong></a><small>@dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMM, HH:mm")</small></td><td><strong>@dispatchCase.IncidentType</strong><small>@dispatchCase.Location</small></td><td><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></td><td><strong>@(activeUnit?.Identifier ?? completed?.Unit.Identifier ?? "Not assigned")</strong></td><td>@if (activeUnit is not null) { <span class="state-label active">Response active</span> } else { <span class="state-label complete">Signed off</span> }</td></tr>
         }
         </tbody></table></div>
     }

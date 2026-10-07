@@ -1,0 +1,124 @@
+@page "/Cases/Details/{caseId:guid}"
+@model DispatchWeb.Pages.Cases.DetailsModel
+
+@{
+    ViewData["Title"] = $"Case report {Model.DispatchCase.CaseNumber}";
+    var dispatchCase = Model.DispatchCase;
+    var overrideEvent = Model.AuditEvents.LastOrDefault(item => item.EventType == AuditEventTypes.PriorityOverridden);
+}
+
+<header class="page-heading report-heading">
+    <div>
+        <p class="eyebrow">Case report</p>
+        <h1>@dispatchCase.CaseNumber</h1>
+        <p>Recorded @dispatchCase.RecordedAt.LocalDateTime.ToString("dd MMMM yyyy 'at' HH:mm")</p>
+    </div>
+    <div class="heading-actions no-print">
+        <a class="button button-secondary" href="javascript:history.back()">Back</a>
+        <button class="button" type="button" onclick="window.print()">Print Report</button>
+    </div>
+</header>
+
+<section class="report-summary" aria-label="Case summary">
+    <article><span>Status</span><strong><span class="badge status @dispatchCase.Status.ToString().ToLowerInvariant()">@(dispatchCase.Status == CaseStatus.InProgress ? "In Progress" : dispatchCase.Status)</span></strong></article>
+    <article><span>Current priority</span><strong><span class="badge priority @dispatchCase.Priority.ToString().ToLowerInvariant()">@dispatchCase.Priority</span></strong></article>
+    <article><span>Required response</span><strong>@string.Join(", ", dispatchCase.RequiredUnitTypes)</strong></article>
+    <article><span>Coordination</span><strong>@(dispatchCase.WaitingUnitTypes.Any() ? $"Waiting for {string.Join(", ", dispatchCase.WaitingUnitTypes)}" : dispatchCase.Status == CaseStatus.Closed ? "All units signed off" : "All units assigned")</strong></article>
+</section>
+
+<div class="report-grid">
+    <section class="report-section">
+        <div class="section-heading"><div><h2>Incident details</h2><p>The information recorded when the case was created.</p></div></div>
+        <dl class="report-details">
+            <div><dt>Incident type</dt><dd>@dispatchCase.IncidentType</dd></div>
+            <div><dt>Reported severity</dt><dd>@dispatchCase.Severity</dd></div>
+            <div class="detail-wide"><dt>Description</dt><dd>@dispatchCase.Description</dd></div>
+            <div class="detail-wide"><dt>Location</dt><dd>@dispatchCase.Location</dd></div>
+            <div><dt>Latitude</dt><dd>@dispatchCase.Latitude.ToString("F6")</dd></div>
+            <div><dt>Longitude</dt><dd>@dispatchCase.Longitude.ToString("F6")</dd></div>
+        </dl>
+    </section>
+
+    <section class="report-section">
+        <div class="section-heading"><div><h2>Priority decision</h2><p>Calculated and final priority values for this case.</p></div></div>
+        <dl class="report-details single-column">
+            <div><dt>Calculated priority</dt><dd>@dispatchCase.CalculatedPriority</dd></div>
+            <div><dt>Final priority</dt><dd>@dispatchCase.Priority</dd></div>
+            @if (overrideEvent is not null)
+            {
+                <div><dt>Override reason</dt><dd>@overrideEvent.Reason</dd></div>
+                <div><dt>Changed by</dt><dd>@overrideEvent.PerformedBy at @overrideEvent.CreatedAt.LocalDateTime.ToString("dd MMM yyyy, HH:mm")</dd></div>
+            }
+            else
+            {
+                <div><dt>Override</dt><dd>No manual override recorded</dd></div>
+            }
+        </dl>
+    </section>
+</div>
+
+@if (Model.CanViewPrivateDetails)
+{
+    <section class="report-section">
+        <div class="section-heading"><div><h2>Caller details</h2><p>Private information visible to dispatch and administration only.</p></div></div>
+        <dl class="report-details">
+            <div><dt>Caller name</dt><dd>@dispatchCase.CallerName</dd></div>
+            <div><dt>Caller phone</dt><dd>@dispatchCase.CallerPhone</dd></div>
+        </dl>
+    </section>
+}
+
+<section class="report-section">
+    <div class="section-heading"><div><h2>Response coordination</h2><p>Assignment, distance, and sign-off evidence for each required department.</p></div></div>
+    @if (!dispatchCase.Assignments.Any())
+    {
+        <p class="empty-inline">No response units have been assigned yet.</p>
+    }
+    else
+    {
+        <div class="table-wrap"><table><thead><tr><th>Department</th><th>Unit</th><th>Distance</th><th>Assigned</th><th>Signed off</th><th>Result</th></tr></thead><tbody>
+        @foreach (var assignment in dispatchCase.Assignments.OrderBy(item => item.AssignedAt))
+        {
+            <tr>
+                <td>@assignment.Unit.Type</td>
+                <td><strong>@assignment.Unit.Identifier</strong></td>
+                <td>@assignment.DistanceKilometres.ToString("F2") km</td>
+                <td>@assignment.AssignedAt.LocalDateTime.ToString("dd MMM yyyy, HH:mm")</td>
+                <td>@(assignment.SignedOffAt?.LocalDateTime.ToString("dd MMM yyyy, HH:mm") ?? "Not yet")</td>
+                <td>@if (assignment.IsActive) { <span class="state-label active">Response active</span> } else { <span class="state-label complete">Signed off</span> }</td>
+            </tr>
+        }
+        </tbody></table></div>
+    }
+</section>
+
+@if (dispatchCase.WaitingUnitTypes.Any())
+{
+    <section class="report-notice"><strong>Waiting for response:</strong> No available @string.Join(" or ", dispatchCase.WaitingUnitTypes) unit has been assigned.</section>
+}
+
+@if (Model.CanViewPrivateDetails)
+{
+    <section class="report-section">
+        <div class="section-heading"><div><h2>Case activity</h2><p>Persistent audit events shown in the order they occurred.</p></div><strong>@Model.AuditEvents.Count events</strong></div>
+        @if (!Model.AuditEvents.Any())
+        {
+            <p class="empty-inline">No audit events were found for this case.</p>
+        }
+        else
+        {
+            <div class="table-wrap"><table><thead><tr><th>Time</th><th>Action</th><th>User</th><th>Unit or change</th><th>Reason</th></tr></thead><tbody>
+            @foreach (var item in Model.AuditEvents)
+            {
+                <tr>
+                    <td>@item.CreatedAt.LocalDateTime.ToString("dd MMM yyyy, HH:mm:ss")</td>
+                    <td><strong>@item.EventType</strong></td>
+                    <td>@item.PerformedBy</td>
+                    <td>@if (!string.IsNullOrWhiteSpace(item.UnitIdentifier)) { @item.UnitIdentifier } else if (!string.IsNullOrWhiteSpace(item.OldValue) || !string.IsNullOrWhiteSpace(item.NewValue)) { <span>@item.OldValue → @item.NewValue</span> } else { <span>—</span> }</td>
+                    <td>@(string.IsNullOrWhiteSpace(item.Reason) ? "—" : item.Reason)</td>
+                </tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
+}
