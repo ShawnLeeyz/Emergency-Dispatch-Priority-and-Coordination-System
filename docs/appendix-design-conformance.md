@@ -1,5 +1,7 @@
 # Appendix Design Conformance Review
 
+> Historical Assessment 1 review. The persistence, authentication, assignment and test-result statements below are superseded by `final-test-and-release-evidence.md`.
+
 This review compares the completed Appendices 1-4 in report revision `-4` with the Emergency Dispatch Priority and Coordination System prototype. The review was completed on 25 August 2026. Where an appendix gave a clear behavioural rule, the implementation and automated tests were updated to match it.
 
 ## Overall Result

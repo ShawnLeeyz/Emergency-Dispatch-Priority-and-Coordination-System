@@ -3,6 +3,11 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
+using Emergency_Dispatch_Priority_and_Coordination_System.Application;
+using Emergency_Dispatch_Priority_and_Coordination_System.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Test;
 
@@ -80,6 +85,59 @@ public sealed class WebApplicationTests
         StringAssert.Contains(page, "5000");
     }
 
+    [TestMethod]
+    public async Task MainDemonstrationWorkflow_CreatesReportsAndSignsOffThroughRealHttpPages()
+    {
+        // Arrange
+        using var factory = new TestWebApplicationFactory();
+        using var dispatcherClient = CreateClient(factory);
+        await Login(dispatcherClient, "dispatch01", "dispatch-demo");
+        var createForm = new Dictionary<string, string>
+        {
+            ["Input.CallerName"] = "HTTP Workflow Caller",
+            ["Input.CallerPhone"] = "021 555 0180",
+            ["Input.IncidentType"] = "Medical emergency",
+            ["Input.Description"] = "Patient requires urgent assistance.",
+            ["Input.Location"] = "40 Queen Street",
+            ["Input.Latitude"] = "-36.8485",
+            ["Input.Longitude"] = "174.7633",
+            ["Input.Severity"] = "2",
+            ["Input.RequiredUnitTypes"] = "Medical"
+        };
+
+        // Act - submit the real Razor form, open its report, then sign off as the assigned unit.
+        var createResponse = await PostForm(dispatcherClient, "/Cases/Create", createForm);
+        var cases = factory.Services.GetRequiredService<ICaseRepository>();
+        var dispatchCase = cases.GetAll()
+            .Single(item => item.CallerName == "HTTP Workflow Caller");
+        var assignedUnit = dispatchCase.AssignedUnits.Single();
+        var reportResponse = await dispatcherClient.GetAsync($"/Cases/Details/{dispatchCase.Id}");
+        var report = await reportResponse.Content.ReadAsStringAsync();
+
+        using var unitClient = CreateClient(factory);
+        var unitUsername = assignedUnit.Identifier.Equals("MED-01", StringComparison.OrdinalIgnoreCase)
+            ? "med01" : "med02";
+        await Login(unitClient, unitUsername, "unit-demo");
+        var unitPage = await unitClient.GetStringAsync($"/ResponseUnits/{assignedUnit.Identifier}");
+        var signOffResponse = await PostForm(unitClient,
+            $"/ResponseUnits/{assignedUnit.Identifier}?handler=SignOff",
+            new Dictionary<string, string> { ["caseId"] = dispatchCase.Id.ToString() });
+
+        var completed = cases.Get(dispatchCase.Id)!;
+
+        // Assert
+        Assert.AreEqual(HttpStatusCode.Redirect, createResponse.StatusCode);
+        StringAssert.StartsWith(createResponse.Headers.Location!.ToString(), "/?created=CASE-");
+        Assert.AreEqual(HttpStatusCode.OK, reportResponse.StatusCode);
+        StringAssert.Contains(report, "HTTP Workflow Caller");
+        StringAssert.Contains(report, "Response coordination");
+        StringAssert.Contains(unitPage, dispatchCase.CaseNumber);
+        StringAssert.Contains(unitPage, "Travel distance");
+        Assert.AreEqual(HttpStatusCode.Redirect, signOffResponse.StatusCode);
+        Assert.AreEqual(CaseStatus.Closed, completed.Status);
+        Assert.IsNotNull(completed.Assignments.Single().SignedOffAt);
+    }
+
     private static HttpClient CreateClient(WebApplicationFactory<Program> factory) =>
         factory.CreateClient(new WebApplicationFactoryClientOptions
         {
@@ -109,6 +167,16 @@ public sealed class WebApplicationTests
         return await client.PostAsync("/Account/Login", new FormUrlEncodedContent(form));
     }
 
+    private static async Task<HttpResponseMessage> PostForm(HttpClient client, string path,
+        Dictionary<string, string> values)
+    {
+        var page = await client.GetStringAsync(path.Split('?')[0]);
+        var match = Regex.Match(page, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
+        Assert.IsTrue(match.Success, $"The page {path} did not contain an anti-forgery token.");
+        values["__RequestVerificationToken"] = WebUtility.HtmlDecode(match.Groups[1].Value);
+        return await client.PostAsync(path, new FormUrlEncodedContent(values));
+    }
+
     private sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
     {
         private readonly string _databasePath = Path.Combine(
@@ -121,6 +189,13 @@ public sealed class WebApplicationTests
                 {
                     ["ConnectionStrings:DispatchDatabase"] = $"Data Source={_databasePath}"
                 }));
+            builder.ConfigureServices(services =>
+            {
+                // Program has already registered its database by this stage. Replacing that singleton
+                // guarantees HTTP tests cannot read from or write to the developer's application file.
+                services.RemoveAll<SqliteDatabase>();
+                services.AddSingleton(new SqliteDatabase($"Data Source={_databasePath}"));
+            });
         }
 
         protected override void Dispose(bool disposing)

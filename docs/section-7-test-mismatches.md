@@ -1,5 +1,7 @@
 # Section 7 Test Design and Prototype Mismatches
 
+> Historical Assessment 1 review. The implementation statements and test totals below describe the earlier in-memory prototype and are superseded by `final-test-and-release-evidence.md` and `final-defect-register.md`.
+
 This document records remaining differences between the prototype and Quality Assurance Mid-Project Report revision `-4`, including its completed appendices. The repository was reviewed on 25 August 2026. Appendix-defined priority and module-isolation behaviour was implemented, and Section 7 plus `PrototypeTesting.cs` were updated to follow the executable workflow.
 
 ## Summary

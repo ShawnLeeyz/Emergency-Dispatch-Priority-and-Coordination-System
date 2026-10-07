@@ -1,5 +1,7 @@
 # 7. Initial Test Cases and Requirements Traceability
 
+> Historical Assessment 1 test design. Use `final-test-and-release-evidence.md` for the final implementation, traceability and execution results.
+
 The initial test cases below are derived from the improved requirements in Section 3.4, the acceptance criteria in Section 3.5, and the risk-based testing scope in Section 6.1. The cases focus on the workflows with the greatest potential impact: recording emergency information, creating and prioritising cases, routing cases, assigning response units, and maintaining correct case and unit states. Selected reliability, performance, usability, and concurrency requirements are included where they can be evaluated in the prototype environment.
 
 All test data will be fictional. Before execution, the prototype must meet the entry criteria in Section 6.5. The actual result, execution date, tester, and pass/fail status will be recorded when each test is run. These cases follow the completed prototype workflow: the dispatcher submits one emergency form; the system creates, prioritises, stores, and routes the case; the first available unit in each selected department is assigned; response units sign off from their own workspace; and released units are offered to the oldest compatible waiting case.

@@ -1,8 +1,8 @@
 # Emergency Dispatch Priority and Coordination System
 
-An ENSE707 ASP.NET Core Razor Pages prototype for recording emergency calls, creating cases,
-determining prototype priority, routing work to Medical, Police, and Fire departments, and
-coordinating in-memory response units.
+An ENSE707 ASP.NET Core Razor Pages prototype for recording emergency cases, calculating priority,
+routing cases to selected departments, assigning nearby response units, and tracking each case until
+all required units have signed off.
 
 ## Run the prototype
 
@@ -12,66 +12,68 @@ From the repository root:
 dotnet run --project .\Emergency-Dispatch-Priority-and-Coordination-System\DispatchWeb
 ```
 
-Open the local URL printed by ASP.NET Core. All cases, unit changes, assignments, and
-notifications are stored in memory and reset when the application stops.
+Open the local URL shown by ASP.NET Core. Runtime data is stored in
+`Emergency-Dispatch-Priority-and-Coordination-System/DispatchWeb/Data/dispatch.db`. The AES key used
+by this local prototype is stored beside it as `dispatch.db.key`. Keep both files together when moving
+the prototype and do not commit either file.
 
-The application now opens at a role-based sign-in screen. Demo accounts are loaded from
-`DispatchWeb/Data/demo-accounts.txt`; the file contains fake plaintext credentials for this
-university prototype only. It is not a production identity or credential-storage design.
+The application seeds fake demonstration accounts into SQLite on first use. Representative accounts
+are `dispatch01` / `dispatch-demo`, `medical01` / `department-demo`, `med01` / `unit-demo`, and
+`admin` / `admin-demo`. Passwords are stored as salted PBKDF2 hashes, not plaintext. These shared
+demonstration passwords and the prototype Admin role are not a production authentication design.
 
-To build and run the automated regression tests:
+## Main workflow
 
-```powershell
-dotnet build .\Emergency-Dispatch-Priority-and-Coordination-System\Emergency-Dispatch-Priority-and-Coordination-System.slnx
-dotnet test .\Emergency-Dispatch-Priority-and-Coordination-System\Emergency-Dispatch-Priority-and-Coordination-System.slnx --no-build
-```
+1. A dispatcher records caller, incident, location, coordinates, severity, and required departments.
+2. The system creates the case, applies department keyword rules, and uses reported severity when no
+   keyword matches. An authorised dispatcher may override the result with a mandatory reason.
+3. The case appears only on selected department dashboards. The nearest available compatible unit is
+   assigned using Haversine distance; uncovered work remains in the waiting queue.
+4. Assigned response units see their incident and travel distance, then sign off individually.
+5. A released unit is offered to the oldest compatible waiting case. The original case closes only
+   after every required department response has signed off.
+6. Dispatchers can search history and open a printable case report. Important workflow actions are
+   retained in the persistent audit log.
 
-## Current prototype workflow
+Dashboards reload every five seconds. Cases, units, assignments, notifications, accounts, priority
+overrides, and audit events survive application restart. Selected sensitive fields are encrypted at
+rest using AES-GCM.
 
-1. A dispatcher records caller, incident, location, description, and required response details.
-2. The system creates the case, applies the Appendix 1 department keyword policy with dispatcher
-   severity as its fallback, and routes it to
-   each selected department.
-3. The first available unit in each department is assigned. Uncovered department work remains
-   visible in a deterministic first-in waiting queue.
-4. Assigned units sign off individually from their own response-unit workspace. Only that unit is
-   released, and it is immediately offered to the oldest compatible waiting case.
-5. The case remains In Progress while another response is active, returns to Open when incomplete
-   work has no active unit, and closes automatically after all required department responses sign off.
+## Roles
 
-Department dashboards and the dispatcher dashboard poll every five seconds. Unit details can be
-updated at prototype level, while availability remains controlled by assignment and sign-off.
-History search uses OR semantics across caller name, case ID, and recorded date.
+- Dispatcher: record cases, monitor current work, override priority, search history and view reports.
+- Department: view only cases routed to its department and manage its response-unit details.
+- Response unit: view and sign off only its assigned response work.
+- Admin: inspect all prototype interfaces and the audit log for testing and demonstration.
 
-## Demo accounts and roles
-
-- Dispatcher accounts open case monitoring, emergency intake, and history.
-- Department accounts are scoped to Medical, Police, or Fire dashboards and unit management.
-- Response-unit accounts are scoped to one seeded unit and its assignment/sign-off workspace.
-- The prototype-only Admin account can inspect every interface from a simple overview page.
-
-The login page includes the complete fake demo-account reference. Representative credentials are
-`dispatch01` / `dispatch-demo`, `medical01` / `department-demo`, `med01` / `unit-demo`, and
-`admin` / `admin-demo`. Never replace these values with real credentials. Authentication uses an
-HTTP-only ASP.NET Core cookie for the current session, and server-side route checks enforce role and
-scope access rather than relying only on hidden navigation links.
+Access is checked on the server using an HTTP-only authentication cookie, role claims, scope claims,
+middleware, and case-report scope checks. Hiding a navigation link is not treated as authorisation.
 
 ## Architecture
 
-- `Domain` owns case lifecycle, assignment history, unit availability, and department state.
-- `Application` coordinates case creation, routing, deterministic assignment, queue retry,
-  sign-off, notifications, and unit updates through interfaces.
-- `Infrastructure` provides the in-memory repositories and notification store.
-- `Logic` contains the replaceable priority and unit-assignment policies.
-- `DispatchWeb` contains the Razor Pages operational interface.
-- `DispatchWeb/Authentication` contains the small prototype account loader, claims context, and
-  role/scope route enforcement.
-- `Test` contains focused MSTest workflow regressions.
+- `Domain` owns cases, lifecycle rules, assignment history, units and availability.
+- `Application` coordinates dispatch through `DispatchService` and repository interfaces.
+- `Logic` contains replaceable priority and nearest-unit assignment strategies.
+- `Infrastructure` contains SQLite and in-memory test repository implementations.
+- `DispatchWeb` contains Razor Pages, authentication, role interfaces and printable reporting.
+- `Test` contains MSTest unit, integration, database, security, performance and HTTP tests.
 
-## Priority policy
+## Build and test
 
-`KeywordSeverityPriority` implements the Appendix 1 Police, Medical/Ambulance, and Fire keyword
-groups. It checks only the departments requested by the case, gives High matches precedence over
-Medium matches, and uses the dispatcher-selected severity when no listed term matches. For a
-multi-department case, the highest matching priority is used. This remains a university prototype
-policy and must not be treated as operational emergency-service triage guidance.
+```powershell
+dotnet build .\Emergency-Dispatch-Priority-and-Coordination-System\Emergency-Dispatch-Priority-and-Coordination-System.slnx --warnaserror
+dotnet test .\Emergency-Dispatch-Priority-and-Coordination-System\Emergency-Dispatch-Priority-and-Coordination-System.slnx --no-build
+```
+
+GitHub Actions repeats restore, warning-free build, the full regression suite and a dependency
+vulnerability check for pushes and pull requests to `main`. Final Assignment 2 evidence is in:
+
+- `docs/final-test-and-release-evidence.md`
+- `docs/final-defect-register.md`
+
+## Prototype limitations
+
+Routing is internal visibility and coordination, not an external emergency-service connection.
+Coordinates are entered manually, dashboard updates use polling, the encryption key is a local file,
+and production identity, key management, monitoring, load testing, privacy review, accessibility
+validation, and operational safety certification are outside this university prototype.
