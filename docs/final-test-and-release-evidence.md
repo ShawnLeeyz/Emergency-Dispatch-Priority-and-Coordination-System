@@ -47,17 +47,17 @@ Reliability and performance testing were selected because a dispatch workflow mu
 
 Manual checks are still appropriate for visual layout, keyboard-only navigation, screen-reader announcements, print layout, the visible five-second refresh, and demonstration clarity. These behaviours should be recorded with screenshots or a short test sheet in the final report.
 
-## Automated quality workflow
+## Current local quality workflow
 
-`.github/workflows/quality-gates.yml` runs on pushes and pull requests to `main`. Its gates are:
+The temporary quality workflow is run locally before changes are accepted:
 
-1. Restore succeeds.
-2. Build succeeds with warnings treated as errors.
-3. Every automated test passes.
-4. NuGet dependencies are inspected for known vulnerabilities.
-5. The `.trx` result is uploaded even when a previous step fails.
+1. Restore dependencies.
+2. Build the complete solution with warnings treated as errors.
+3. Run every automated test and save the `.trx` result.
+4. Inspect NuGet dependencies for known vulnerabilities.
+5. Review the result before merging or demonstrating the prototype.
 
-A pull request should not be merged when build or test gates fail. Human review is still required for requirement changes, security decisions, usability and test quality.
+The GitHub Actions workflow has been deferred while its Linux-only test behaviour is investigated. This is a current CI limitation and should be stated honestly in Section 5.5 rather than presenting CI as complete. Human review remains required for requirement changes, security decisions, usability and test quality.
 
 ## Final execution record
 

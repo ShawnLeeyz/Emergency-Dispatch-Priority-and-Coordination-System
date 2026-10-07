@@ -65,8 +65,7 @@ dotnet build .\Emergency-Dispatch-Priority-and-Coordination-System\Emergency-Dis
 dotnet test .\Emergency-Dispatch-Priority-and-Coordination-System\Emergency-Dispatch-Priority-and-Coordination-System.slnx --no-build
 ```
 
-GitHub Actions repeats restore, warning-free build, the full regression suite and a dependency
-vulnerability check for pushes and pull requests to `main`. Final Assignment 2 evidence is in:
+The commands above provide the current local quality workflow. Final Assignment 2 evidence is in:
 
 - `docs/final-test-and-release-evidence.md`
 - `docs/final-defect-register.md`
