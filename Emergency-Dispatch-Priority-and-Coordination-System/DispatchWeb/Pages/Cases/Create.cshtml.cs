@@ -31,7 +31,9 @@ public sealed class CreateModel(DispatchService dispatchService) : PageModel
                 Input.Description,
                 Input.Location,
                 Input.Severity,
-                Input.RequiredUnitTypes);
+                Input.RequiredUnitTypes,
+                Input.Latitude,
+                Input.Longitude);
 
             var dispatchCase = dispatchService.CreateAndDispatch(request, User.Identity?.Name ?? "Unknown user");
             return RedirectToPage("/Index", new { created = dispatchCase.CaseNumber });
@@ -66,6 +68,12 @@ public sealed class CreateModel(DispatchService dispatchService) : PageModel
         [Required]
         [Display(Name = "Incident location")]
         public string Location { get; set; } = string.Empty;
+
+        [Range(-90, 90)]
+        public double Latitude { get; set; } = -36.8485;
+
+        [Range(-180, 180)]
+        public double Longitude { get; set; } = 174.7633;
 
         [Display(Name = "Reported severity")]
         public Severity Severity { get; set; } = Severity.Medium;

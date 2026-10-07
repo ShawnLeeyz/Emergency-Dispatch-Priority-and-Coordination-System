@@ -172,11 +172,11 @@ public sealed class PrototypeTesting
     }
 
     [TestMethod]
-    public void TC06_Assignment_SkipsUnavailableUnitAndSelectsFirstAvailableUnit()
+    public void TC06_Assignment_SkipsUnavailableUnitAndSelectsClosestAvailableUnit()
     {
-        var p01 = new Unit("P-01", ResponseUnitType.Police, "Central", 2);
-        var p02 = new Unit("P-02", ResponseUnitType.Police, "North", 2);
-        var p03 = new Unit("P-03", ResponseUnitType.Police, "South", 2);
+        var p01 = new Unit("P-01", ResponseUnitType.Police, "Central", 2, -36.8485, 174.7633);
+        var p02 = new Unit("P-02", ResponseUnitType.Police, "North", 2, -36.9000, 174.8000);
+        var p03 = new Unit("P-03", ResponseUnitType.Police, "Nearby", 2, -36.8490, 174.7640);
         Occupy(p01);
         var departments = new TestDepartmentRepository(
             new Department(ResponseUnitType.Police, "Police", [p01, p02, p03]));
@@ -184,10 +184,10 @@ public sealed class PrototypeTesting
 
         var result = service.CreateAndDispatch(Request(requiredTypes: [ResponseUnitType.Police]));
 
-        Assert.AreEqual("P-02", result.AssignedUnits.Single().Identifier);
+        Assert.AreEqual("P-03", result.AssignedUnits.Single().Identifier);
         Assert.AreEqual(UnitAvailability.Unavailable, p01.Availability);
-        Assert.AreEqual(UnitAvailability.Unavailable, p02.Availability);
-        Assert.AreEqual(UnitAvailability.Available, p03.Availability);
+        Assert.AreEqual(UnitAvailability.Available, p02.Availability);
+        Assert.AreEqual(UnitAvailability.Unavailable, p03.Availability);
         Assert.AreEqual(CaseStatus.InProgress, result.Status);
     }
 
@@ -407,7 +407,7 @@ public sealed class PrototypeTesting
         IDepartmentRepository? departments = null,
         IDispatchNotifier? notifier = null) =>
         new(cases, departments ?? StandardDepartments(), new KeywordSeverityPriority(),
-            notifier ?? new InMemoryDispatchNotifier(), new InMemoryAuditRepository());
+            notifier ?? new InMemoryDispatchNotifier(), new InMemoryAuditRepository(), new UnitAssignmentService());
 
     private static TestDepartmentRepository StandardDepartments() => new(
         new Department(ResponseUnitType.Medical, "Medical",

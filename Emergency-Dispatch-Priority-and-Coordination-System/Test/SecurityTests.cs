@@ -102,19 +102,20 @@ public sealed class SecurityTests
             var departments = new SqliteDepartmentRepository(database);
             var service = new DispatchService(cases, departments,
                 new KeywordSeverityPriority(), new SqliteDispatchNotifier(database),
-                new SqliteAuditRepository(database));
+                new SqliteAuditRepository(database), new UnitAssignmentService());
 
             // Act
             var created = service.CreateAndDispatch(new CreateCaseRequest(
                 "Private Caller", "021 999 1234", "Medical assistance", "Private medical details",
                 "88 Confidential Road", Severity.High, [ResponseUnitType.Medical]));
-            var storedCaller = ReadStoredCaller(databasePath, created.Id);
+            var storedValues = ReadStoredCaseValues(databasePath, created.Id);
             var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath}");
             var restored = new SqliteCaseRepository(reopenedDatabase).Get(created.Id);
 
             // Assert
-            StringAssert.StartsWith(storedCaller, "ENC1:");
-            Assert.AreNotEqual("Private Caller", storedCaller);
+            StringAssert.StartsWith(storedValues.Caller, "ENC1:");
+            StringAssert.StartsWith(storedValues.Latitude, "ENC1:");
+            Assert.AreNotEqual("Private Caller", storedValues.Caller);
             Assert.IsNotNull(restored);
             Assert.AreEqual("Private Caller", restored.CallerName);
             Assert.AreEqual("021 999 1234", restored.CallerPhone);
@@ -127,14 +128,16 @@ public sealed class SecurityTests
         }
     }
 
-    private static string ReadStoredCaller(string databasePath, Guid caseId)
+    private static (string Caller, string Latitude) ReadStoredCaseValues(string databasePath, Guid caseId)
     {
         using var connection = new SqliteConnection($"Data Source={databasePath}");
         connection.Open();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT CallerName FROM Cases WHERE Id = $id;";
+        command.CommandText = "SELECT CallerName, Latitude FROM Cases WHERE Id = $id;";
         command.Parameters.AddWithValue("$id", caseId.ToString());
-        return (string)command.ExecuteScalar()!;
+        using var reader = command.ExecuteReader();
+        Assert.IsTrue(reader.Read());
+        return (reader.GetString(0), reader.GetString(1));
     }
 
     private static string NewDatabasePath() =>

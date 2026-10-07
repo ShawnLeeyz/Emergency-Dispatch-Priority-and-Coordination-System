@@ -37,7 +37,7 @@ public sealed class UnitsModel(IDepartmentRepository departments, DispatchServic
         try
         {
             dispatchService.UpdateUnit(Input.Department, Input.UnitId, Input.Location, Input.PersonnelCount,
-                User.Identity?.Name ?? "Unknown user");
+                User.Identity?.Name ?? "Unknown user", Input.Latitude, Input.Longitude);
             TempData["Success"] = $"{Input.Identifier} details updated.";
             return RedirectToPage(new { department = Input.Department });
         }
@@ -73,6 +73,12 @@ public sealed class UnitsModel(IDepartmentRepository departments, DispatchServic
         [Required]
         [StringLength(120)]
         public string Location { get; set; } = string.Empty;
+
+        [Range(-90, 90)]
+        public double Latitude { get; set; }
+
+        [Range(-180, 180)]
+        public double Longitude { get; set; }
 
         [Range(1, 30)]
         public int PersonnelCount { get; set; }

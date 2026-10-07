@@ -53,7 +53,8 @@ public sealed class SqlitePersistenceTests
             var unit = firstStore.Departments.Get(ResponseUnitType.Police)!.Units.First();
 
             // Act
-            service.UpdateUnit(ResponseUnitType.Police, unit.Id, "Airport station", 5);
+            service.UpdateUnit(ResponseUnitType.Police, unit.Id, "Airport station", 5,
+                latitude: -36.9991, longitude: 174.7876);
             var reopenedStore = CreateStore(databasePath);
             var restoredUnit = reopenedStore.Departments.Get(ResponseUnitType.Police)!.Units
                 .Single(candidate => candidate.Id == unit.Id);
@@ -61,6 +62,8 @@ public sealed class SqlitePersistenceTests
             // Assert
             Assert.AreEqual("Airport station", restoredUnit.Location);
             Assert.AreEqual(5, restoredUnit.PersonnelCount);
+            Assert.AreEqual(-36.9991, restoredUnit.Latitude, 0.000001);
+            Assert.AreEqual(174.7876, restoredUnit.Longitude, 0.000001);
         }
         finally
         {
@@ -115,7 +118,7 @@ public sealed class SqlitePersistenceTests
             var departments = new SqliteDepartmentRepository(firstDatabase);
             var notifier = new SqliteDispatchNotifier(firstDatabase);
             var service = new DispatchService(cases, departments, new KeywordSeverityPriority(), notifier,
-                new SqliteAuditRepository(firstDatabase));
+                new SqliteAuditRepository(firstDatabase), new UnitAssignmentService());
 
             // Act
             var dispatchCase = service.CreateAndDispatch(new CreateCaseRequest(
@@ -144,7 +147,7 @@ public sealed class SqlitePersistenceTests
 
     private static DispatchService CreateService(ICaseRepository cases, IDepartmentRepository departments) =>
         new(cases, departments, new KeywordSeverityPriority(), new InMemoryDispatchNotifier(),
-            new InMemoryAuditRepository());
+            new InMemoryAuditRepository(), new UnitAssignmentService());
 
     private static string NewDatabasePath() =>
         Path.Combine(Path.GetTempPath(), $"dispatch-persistence-tests-{Guid.NewGuid():N}.db");

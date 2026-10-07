@@ -18,6 +18,7 @@ else
         <dl class="assignment-details">
             <div><dt>Incident</dt><dd>@Model.ActiveCase.IncidentType</dd></div>
             <div><dt>Location</dt><dd>@Model.ActiveCase.Location</dd></div>
+            <div><dt>Travel distance</dt><dd>@Model.ActiveCase.Assignments.Single(a => a.IsActive && a.Unit.Id == Model.Unit.Id).DistanceKilometres.ToString("F2") km</dd></div>
             <div><dt>Case status</dt><dd><span class="state-label active">In Progress</span></dd></div>
             <div><dt>Required departments</dt><dd>@string.Join(", ", Model.ActiveCase.RequiredUnitTypes)</dd></div>
             <div class="detail-wide"><dt>Incident details</dt><dd>@Model.ActiveCase.Description</dd></div>

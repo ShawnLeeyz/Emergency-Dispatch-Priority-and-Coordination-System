@@ -147,7 +147,7 @@ public sealed class PriorityOverrideTests
     private static DispatchService CreateService(ICaseRepository cases, IDepartmentRepository departments,
         IAuditRepository audit, IDispatchNotifier? notifier = null) =>
         new(cases, departments, new KeywordSeverityPriority(),
-            notifier ?? new InMemoryDispatchNotifier(), audit);
+            notifier ?? new InMemoryDispatchNotifier(), audit, new UnitAssignmentService());
 
     private static CreateCaseRequest LowPriorityRequest() =>
         new("Priority Caller", "021 555 0188", "Routine request", "No listed keyword",

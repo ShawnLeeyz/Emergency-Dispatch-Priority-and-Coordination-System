@@ -10,18 +10,20 @@ public sealed class DispatchService
     private readonly IPriorityStrategy _priorityStrategy;
     private readonly IDispatchNotifier _notifier;
     private readonly IAuditRepository _audit;
+    private readonly IUnitAssignmentService _unitAssignment;
     private readonly Lock _dispatchLock = new();
 
     public DispatchService(ICaseRepository cases, IDepartmentRepository departments, IPriorityStrategy priorityStrategy,
-        IDispatchNotifier notifier, IAuditRepository audit)
-        => (_cases, _departments, _priorityStrategy, _notifier, _audit) =
-            (cases, departments, priorityStrategy, notifier, audit);
+        IDispatchNotifier notifier, IAuditRepository audit, IUnitAssignmentService unitAssignment)
+        => (_cases, _departments, _priorityStrategy, _notifier, _audit, _unitAssignment) =
+            (cases, departments, priorityStrategy, notifier, audit, unitAssignment);
 
     public Case CreateAndDispatch(CreateCaseRequest request, string performedBy = "System")
     {
         ArgumentNullException.ThrowIfNull(request);
         var dispatchCase = new Case(request.CallerName, request.CallerPhone, request.IncidentType,
-            request.Description, request.Location, request.Severity, request.RequiredUnitTypes);
+            request.Description, request.Location, request.Severity, request.RequiredUnitTypes,
+            latitude: request.Latitude, longitude: request.Longitude);
         dispatchCase.SetCalculatedPriority(_priorityStrategy.Calculate(dispatchCase));
         lock (_dispatchLock)
         {
@@ -60,17 +62,18 @@ public sealed class DispatchService
     }
 
     public void UpdateUnit(ResponseUnitType departmentType, Guid unitId, string location, int personnelCount,
-        string performedBy = "System")
+        string performedBy = "System", double? latitude = null, double? longitude = null)
     {
         lock (_dispatchLock)
         {
             var unit = _departments.Get(departmentType)?.Units.SingleOrDefault(candidate => candidate.Id == unitId)
                 ?? throw new KeyNotFoundException("The selected response unit could not be found in that department.");
-            var oldValue = $"Location: {unit.Location}; Personnel: {unit.PersonnelCount}";
-            unit.UpdateDetails(location, personnelCount);
+            var oldValue = $"Location: {unit.Location}; Coordinates: {unit.Latitude:F5}, {unit.Longitude:F5}; Personnel: {unit.PersonnelCount}";
+            unit.UpdateDetails(location, personnelCount, latitude ?? unit.Latitude, longitude ?? unit.Longitude);
             _departments.Save(unit);
             AddAudit(AuditEventTypes.UnitUpdated, performedBy, null, unit.Identifier, oldValue,
-                $"Location: {unit.Location}; Personnel: {unit.PersonnelCount}", "Unit details updated.");
+                $"Location: {unit.Location}; Coordinates: {unit.Latitude:F5}, {unit.Longitude:F5}; Personnel: {unit.PersonnelCount}",
+                "Unit details updated.");
         }
     }
 
@@ -101,12 +104,15 @@ public sealed class DispatchService
         var assigned = false;
         foreach (var responseType in dispatchCase.WaitingUnitTypes)
         {
-            var unit = _departments.Get(responseType)?.Units.FirstOrDefault(candidate => candidate.Availability == UnitAvailability.Available);
-            if (unit is null || !dispatchCase.Assign(unit)) continue;
+            var units = _departments.Get(responseType)?.Units ?? [];
+            var unit = _unitAssignment.SelectClosestAvailable(units, dispatchCase);
+            if (unit is null) continue;
+            var distance = _unitAssignment.CalculateDistanceKilometres(dispatchCase, unit);
+            if (!dispatchCase.Assign(unit, distance)) continue;
             assigned = true;
             _departments.Save(unit);
             AddAudit(AuditEventTypes.UnitAssigned, performedBy, dispatchCase, unit.Identifier,
-                "Available", "Assigned", "Automatically selected for the new case.");
+                "Available", "Assigned", $"Closest available unit selected at {distance:F2} km.");
             NotifySafely(unit, dispatchCase);
         }
         if (assigned) _cases.Save(dispatchCase);
@@ -120,9 +126,11 @@ public sealed class DispatchService
             .ThenBy(dispatchCase => dispatchCase.Id)
             .FirstOrDefault();
 
-        if (waitingCase is null || !waitingCase.Assign(availableUnit)) return null;
+        if (waitingCase is null) return null;
+        var distance = _unitAssignment.CalculateDistanceKilometres(waitingCase, availableUnit);
+        if (!waitingCase.Assign(availableUnit, distance)) return null;
         AddAudit(AuditEventTypes.UnitAssigned, performedBy, waitingCase, availableUnit.Identifier,
-            "Available", "Assigned", "Automatically assigned to the oldest waiting case.");
+            "Available", "Assigned", $"Assigned to the oldest waiting case at {distance:F2} km.");
         NotifySafely(availableUnit, waitingCase);
         return waitingCase;
     }
@@ -151,4 +159,5 @@ public sealed class DispatchService
 }
 
 public sealed record CreateCaseRequest(string CallerName, string CallerPhone, string IncidentType,
-    string Description, string Location, Severity Severity, IReadOnlyCollection<ResponseUnitType> RequiredUnitTypes);
+    string Description, string Location, Severity Severity, IReadOnlyCollection<ResponseUnitType> RequiredUnitTypes,
+    double Latitude = -36.8485, double Longitude = 174.7633);

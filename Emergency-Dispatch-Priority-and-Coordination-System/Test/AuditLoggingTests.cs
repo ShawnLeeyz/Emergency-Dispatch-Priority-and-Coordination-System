@@ -120,7 +120,7 @@ public sealed class AuditLoggingTests
     private static DispatchService CreateService(ICaseRepository cases, IDepartmentRepository departments,
         IAuditRepository audit, IDispatchNotifier? notifier = null) =>
         new(cases, departments, new KeywordSeverityPriority(),
-            notifier ?? new InMemoryDispatchNotifier(), audit);
+            notifier ?? new InMemoryDispatchNotifier(), audit, new UnitAssignmentService());
 
     private static CreateCaseRequest Request(ResponseUnitType type) =>
         new("Audit Caller", "021 555 0199", "Emergency", "Audit test case",

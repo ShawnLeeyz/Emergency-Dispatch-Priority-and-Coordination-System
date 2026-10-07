@@ -34,6 +34,7 @@ builder.Services.AddSingleton<IAuditRepository, SqliteAuditRepository>();
 builder.Services.AddSingleton<PasswordHasher>();
 builder.Services.AddSingleton<DemoAccountStore>();
 builder.Services.AddSingleton<IPriorityStrategy, KeywordSeverityPriority>();
+builder.Services.AddSingleton<IUnitAssignmentService, UnitAssignmentService>();
 builder.Services.AddSingleton<DispatchService>();
 
 var app = builder.Build();

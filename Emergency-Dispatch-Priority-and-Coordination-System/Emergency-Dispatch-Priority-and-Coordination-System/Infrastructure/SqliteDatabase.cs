@@ -83,12 +83,16 @@ public sealed class SqliteDatabase
             command.CommandText = """
                 UPDATE Units
                 SET Location = $location,
+                    Latitude = $latitude,
+                    Longitude = $longitude,
                     PersonnelCount = $personnelCount,
                     Availability = $availability,
                     AssignedCaseId = $assignedCaseId
                 WHERE Id = $id;
                 """;
             command.Parameters.AddWithValue("$location", unit.Location);
+            command.Parameters.AddWithValue("$latitude", EncryptCoordinate(unit.Latitude));
+            command.Parameters.AddWithValue("$longitude", EncryptCoordinate(unit.Longitude));
             command.Parameters.AddWithValue("$personnelCount", unit.PersonnelCount);
             command.Parameters.AddWithValue("$availability", (int)unit.Availability);
             command.Parameters.AddWithValue("$assignedCaseId", unit.AssignedCaseId?.ToString() ?? (object)DBNull.Value);
@@ -261,10 +265,10 @@ public sealed class SqliteDatabase
             command.CommandText = """
                 INSERT INTO Cases
                     (Id, CallerName, CallerPhone, IncidentType, Description, Location, RecordedAt,
-                     Severity, CalculatedPriority, Priority, Status)
+                     Severity, CalculatedPriority, Priority, Status, Latitude, Longitude)
                 VALUES
                     ($id, $callerName, $callerPhone, $incidentType, $description, $location, $recordedAt,
-                     $severity, $calculatedPriority, $priority, $status)
+                     $severity, $calculatedPriority, $priority, $status, $latitude, $longitude)
                 ON CONFLICT(Id) DO UPDATE SET
                     CallerName = excluded.CallerName,
                     CallerPhone = excluded.CallerPhone,
@@ -275,7 +279,9 @@ public sealed class SqliteDatabase
                     Severity = excluded.Severity,
                     CalculatedPriority = excluded.CalculatedPriority,
                     Priority = excluded.Priority,
-                    Status = excluded.Status;
+                    Status = excluded.Status,
+                    Latitude = excluded.Latitude,
+                    Longitude = excluded.Longitude;
                 """;
             command.Parameters.AddWithValue("$id", dispatchCase.Id.ToString());
             command.Parameters.AddWithValue("$callerName", _encryptor.Encrypt(dispatchCase.CallerName));
@@ -288,6 +294,8 @@ public sealed class SqliteDatabase
             command.Parameters.AddWithValue("$calculatedPriority", (int)dispatchCase.CalculatedPriority);
             command.Parameters.AddWithValue("$priority", (int)dispatchCase.Priority);
             command.Parameters.AddWithValue("$status", (int)dispatchCase.Status);
+            command.Parameters.AddWithValue("$latitude", EncryptCoordinate(dispatchCase.Latitude));
+            command.Parameters.AddWithValue("$longitude", EncryptCoordinate(dispatchCase.Longitude));
             command.ExecuteNonQuery();
         }
 
@@ -308,13 +316,14 @@ public sealed class SqliteDatabase
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
             command.CommandText = """
-                INSERT INTO CaseAssignments (CaseId, UnitId, AssignedAt, SignedOffAt)
-                VALUES ($caseId, $unitId, $assignedAt, $signedOffAt);
+                INSERT INTO CaseAssignments (CaseId, UnitId, AssignedAt, SignedOffAt, DistanceKilometres)
+                VALUES ($caseId, $unitId, $assignedAt, $signedOffAt, $distanceKilometres);
                 """;
             command.Parameters.AddWithValue("$caseId", dispatchCase.Id.ToString());
             command.Parameters.AddWithValue("$unitId", assignment.Unit.Id.ToString());
             command.Parameters.AddWithValue("$assignedAt", assignment.AssignedAt.ToString("O"));
             command.Parameters.AddWithValue("$signedOffAt", assignment.SignedOffAt?.ToString("O") ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("$distanceKilometres", assignment.DistanceKilometres);
             command.ExecuteNonQuery();
         }
 
@@ -356,6 +365,8 @@ public sealed class SqliteDatabase
                 Identifier TEXT NOT NULL UNIQUE,
                 Type INTEGER NOT NULL,
                 Location TEXT NOT NULL,
+                Latitude TEXT NOT NULL,
+                Longitude TEXT NOT NULL,
                 PersonnelCount INTEGER NOT NULL,
                 Availability INTEGER NOT NULL,
                 AssignedCaseId TEXT NULL,
@@ -373,7 +384,9 @@ public sealed class SqliteDatabase
                 Severity INTEGER NOT NULL,
                 CalculatedPriority INTEGER NOT NULL,
                 Priority INTEGER NOT NULL,
-                Status INTEGER NOT NULL
+                Status INTEGER NOT NULL,
+                Latitude TEXT NOT NULL,
+                Longitude TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS CaseRequiredUnits (
@@ -388,6 +401,7 @@ public sealed class SqliteDatabase
                 UnitId TEXT NOT NULL,
                 AssignedAt TEXT NOT NULL,
                 SignedOffAt TEXT NULL,
+                DistanceKilometres REAL NOT NULL,
                 PRIMARY KEY (CaseId, UnitId, AssignedAt),
                 FOREIGN KEY (CaseId) REFERENCES Cases(Id),
                 FOREIGN KEY (UnitId) REFERENCES Units(Id)
@@ -439,16 +453,17 @@ public sealed class SqliteDatabase
 
         using var transaction = connection.BeginTransaction();
         AddDepartment(connection, transaction, ResponseUnitType.Medical, "Medical",
-            [("MED-01", "Central Hospital", 2), ("MED-02", "North Clinic", 2)]);
+            [("MED-01", "Central Hospital", 2, -36.8600, 174.7690), ("MED-02", "North Clinic", 2, -36.8790, 174.7510)]);
         AddDepartment(connection, transaction, ResponseUnitType.Police, "Police",
-            [("POL-01", "Central Station", 2), ("POL-02", "West Station", 2)]);
+            [("POL-01", "Central Station", 2, -36.8530, 174.7660), ("POL-02", "West Station", 2, -36.8740, 174.7270)]);
         AddDepartment(connection, transaction, ResponseUnitType.Fire, "Fire",
-            [("FIR-01", "Fire Station 1", 4), ("FIR-02", "Fire Station 2", 4)]);
+            [("FIR-01", "Fire Station 1", 4, -36.8480, 174.7580), ("FIR-02", "Fire Station 2", 4, -36.8840, 174.7330)]);
         transaction.Commit();
     }
 
-    private static void AddDepartment(SqliteConnection connection, SqliteTransaction transaction,
-        ResponseUnitType type, string name, IEnumerable<(string Identifier, string Location, int Personnel)> units)
+    private void AddDepartment(SqliteConnection connection, SqliteTransaction transaction,
+        ResponseUnitType type, string name,
+        IEnumerable<(string Identifier, string Location, int Personnel, double Latitude, double Longitude)> units)
     {
         using (var command = connection.CreateCommand())
         {
@@ -464,13 +479,17 @@ public sealed class SqliteDatabase
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
             command.CommandText = """
-                INSERT INTO Units (Id, Identifier, Type, Location, PersonnelCount, Availability, AssignedCaseId)
-                VALUES ($id, $identifier, $type, $location, $personnelCount, $availability, NULL);
+                INSERT INTO Units (Id, Identifier, Type, Location, Latitude, Longitude,
+                                   PersonnelCount, Availability, AssignedCaseId)
+                VALUES ($id, $identifier, $type, $location, $latitude, $longitude,
+                        $personnelCount, $availability, NULL);
                 """;
             command.Parameters.AddWithValue("$id", Guid.NewGuid().ToString());
             command.Parameters.AddWithValue("$identifier", unit.Identifier);
             command.Parameters.AddWithValue("$type", (int)type);
             command.Parameters.AddWithValue("$location", unit.Location);
+            command.Parameters.AddWithValue("$latitude", EncryptCoordinate(unit.Latitude));
+            command.Parameters.AddWithValue("$longitude", EncryptCoordinate(unit.Longitude));
             command.Parameters.AddWithValue("$personnelCount", unit.Personnel);
             command.Parameters.AddWithValue("$availability", (int)UnitAvailability.Available);
             command.ExecuteNonQuery();
@@ -500,7 +519,8 @@ public sealed class SqliteDatabase
             var units = new List<Unit>();
             using var command = connection.CreateCommand();
             command.CommandText = """
-                SELECT Id, Identifier, Location, PersonnelCount, Availability, AssignedCaseId
+                SELECT Id, Identifier, Location, PersonnelCount, Availability, AssignedCaseId,
+                       Latitude, Longitude
                 FROM Units WHERE Type = $type ORDER BY Identifier;
                 """;
             command.Parameters.AddWithValue("$type", (int)row.Type);
@@ -510,7 +530,8 @@ public sealed class SqliteDatabase
                 var unit = new Unit(
                     Guid.Parse(reader.GetString(0)), reader.GetString(1), row.Type, reader.GetString(2),
                     reader.GetInt32(3), (UnitAvailability)reader.GetInt32(4),
-                    reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)));
+                    reader.IsDBNull(5) ? null : Guid.Parse(reader.GetString(5)),
+                    DecryptCoordinate(reader.GetValue(6)), DecryptCoordinate(reader.GetValue(7)));
                 units.Add(unit);
                 _units.Add(unit.Id, unit);
             }
@@ -525,7 +546,7 @@ public sealed class SqliteDatabase
         {
             command.CommandText = """
                 SELECT Id, CallerName, CallerPhone, IncidentType, Description, Location,
-                       RecordedAt, Severity, CalculatedPriority, Priority, Status
+                       RecordedAt, Severity, CalculatedPriority, Priority, Status, Latitude, Longitude
                 FROM Cases ORDER BY RecordedAt;
                 """;
             using var reader = command.ExecuteReader();
@@ -537,7 +558,8 @@ public sealed class SqliteDatabase
                     _encryptor.Decrypt(reader.GetString(4)), _encryptor.Decrypt(reader.GetString(5)),
                     ParseDate(reader.GetString(6)),
                     (Severity)reader.GetInt32(7), (Priority)reader.GetInt32(8),
-                    (Priority)reader.GetInt32(9), (CaseStatus)reader.GetInt32(10)));
+                    (Priority)reader.GetInt32(9), (CaseStatus)reader.GetInt32(10),
+                    DecryptCoordinate(reader.GetValue(11)), DecryptCoordinate(reader.GetValue(12))));
             }
         }
 
@@ -546,7 +568,7 @@ public sealed class SqliteDatabase
             var requiredTypes = LoadRequiredTypes(connection, row.Id);
             var dispatchCase = new Case(row.Id, row.CallerName, row.CallerPhone, row.IncidentType,
                 row.Description, row.Location, row.Severity, requiredTypes, row.RecordedAt,
-                row.CalculatedPriority, row.Priority, row.Status);
+                row.CalculatedPriority, row.Priority, row.Status, row.Latitude, row.Longitude);
             LoadAssignments(connection, dispatchCase);
             _cases.Add(dispatchCase.Id, dispatchCase);
         }
@@ -567,7 +589,7 @@ public sealed class SqliteDatabase
     {
         using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT UnitId, AssignedAt, SignedOffAt
+            SELECT UnitId, AssignedAt, SignedOffAt, DistanceKilometres
             FROM CaseAssignments WHERE CaseId = $caseId ORDER BY AssignedAt;
             """;
         command.Parameters.AddWithValue("$caseId", dispatchCase.Id.ToString());
@@ -577,7 +599,7 @@ public sealed class SqliteDatabase
             var unitId = Guid.Parse(reader.GetString(0));
             if (!_units.TryGetValue(unitId, out var unit)) continue;
             dispatchCase.RestoreAssignment(unit, ParseDate(reader.GetString(1)),
-                reader.IsDBNull(2) ? null : ParseDate(reader.GetString(2)));
+                reader.IsDBNull(2) ? null : ParseDate(reader.GetString(2)), reader.GetDouble(3));
         }
     }
 
@@ -597,30 +619,63 @@ public sealed class SqliteDatabase
     private void ApplySchemaUpdates()
     {
         using var connection = OpenConnection();
-        using var check = connection.CreateCommand();
-        check.CommandText = "PRAGMA table_info(Cases);";
-        using var reader = check.ExecuteReader();
-        var hasCalculatedPriority = false;
-        while (reader.Read())
-            hasCalculatedPriority |= reader.GetString(1).Equals("CalculatedPriority", StringComparison.OrdinalIgnoreCase);
-        reader.Close();
-        if (hasCalculatedPriority) return;
+        AddColumnIfMissing(connection, "Cases", "CalculatedPriority",
+            "CalculatedPriority INTEGER NOT NULL DEFAULT 0", "UPDATE Cases SET CalculatedPriority = Priority;");
+        AddColumnIfMissing(connection, "Cases", "Latitude", "Latitude TEXT NOT NULL DEFAULT '-36.8485'");
+        AddColumnIfMissing(connection, "Cases", "Longitude", "Longitude TEXT NOT NULL DEFAULT '174.7633'");
+        var addedUnitLatitude = AddColumnIfMissing(connection, "Units", "Latitude",
+            "Latitude TEXT NOT NULL DEFAULT '-36.8485'");
+        var addedUnitLongitude = AddColumnIfMissing(connection, "Units", "Longitude",
+            "Longitude TEXT NOT NULL DEFAULT '174.7633'");
+        if (addedUnitLatitude || addedUnitLongitude) SetInitialUnitCoordinates(connection);
+        AddColumnIfMissing(connection, "CaseAssignments", "DistanceKilometres",
+            "DistanceKilometres REAL NOT NULL DEFAULT 0");
+    }
 
-        // Older local databases stored only the effective priority. Preserve that value as the
-        // original calculation when adding override support.
+    private static bool AddColumnIfMissing(SqliteConnection connection, string table, string column,
+        string definition, string? afterSql = null)
+    {
+        using var check = connection.CreateCommand();
+        check.CommandText = $"PRAGMA table_info({table});";
+        using var reader = check.ExecuteReader();
+        var exists = false;
+        while (reader.Read())
+            exists |= reader.GetString(1).Equals(column, StringComparison.OrdinalIgnoreCase);
+        reader.Close();
+        if (exists) return false;
+
         using var update = connection.CreateCommand();
-        update.CommandText = """
-            ALTER TABLE Cases ADD COLUMN CalculatedPriority INTEGER NOT NULL DEFAULT 0;
-            UPDATE Cases SET CalculatedPriority = Priority;
-            """;
+        update.CommandText = $"ALTER TABLE {table} ADD COLUMN {definition};" + afterSql;
         try
         {
             update.ExecuteNonQuery();
+            return true;
         }
         catch (SqliteException exception) when (exception.SqliteErrorCode == 1 &&
                                                   exception.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
         {
             // Another application instance completed the same one-time migration first.
+            return false;
+        }
+    }
+
+    private void SetInitialUnitCoordinates(SqliteConnection connection)
+    {
+        var coordinates = new Dictionary<string, (double Latitude, double Longitude)>
+        {
+            ["MED-01"] = (-36.8600, 174.7690), ["MED-02"] = (-36.8790, 174.7510),
+            ["POL-01"] = (-36.8530, 174.7660), ["POL-02"] = (-36.8740, 174.7270),
+            ["FIR-01"] = (-36.8480, 174.7580), ["FIR-02"] = (-36.8840, 174.7330)
+        };
+
+        foreach (var item in coordinates)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE Units SET Latitude = $latitude, Longitude = $longitude WHERE Identifier = $identifier;";
+            command.Parameters.AddWithValue("$latitude", item.Value.Latitude.ToString("R", CultureInfo.InvariantCulture));
+            command.Parameters.AddWithValue("$longitude", item.Value.Longitude.ToString("R", CultureInfo.InvariantCulture));
+            command.Parameters.AddWithValue("$identifier", item.Key);
+            command.ExecuteNonQuery();
         }
     }
 
@@ -635,13 +690,16 @@ public sealed class SqliteDatabase
     private void EncryptExistingValues()
     {
         using var connection = OpenConnection();
-        var cases = new List<(string Id, string Caller, string Phone, string Description, string Location)>();
+        var cases = new List<(string Id, string Caller, string Phone, string Description, string Location,
+            string Latitude, string Longitude)>();
         using (var command = connection.CreateCommand())
         {
-            command.CommandText = "SELECT Id, CallerName, CallerPhone, Description, Location FROM Cases;";
+            command.CommandText = "SELECT Id, CallerName, CallerPhone, Description, Location, Latitude, Longitude FROM Cases;";
             using var reader = command.ExecuteReader();
             while (reader.Read())
-                cases.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4)));
+                cases.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
+                    reader.GetString(4), Convert.ToString(reader.GetValue(5), CultureInfo.InvariantCulture)!,
+                    Convert.ToString(reader.GetValue(6), CultureInfo.InvariantCulture)!));
         }
 
         foreach (var row in cases)
@@ -649,12 +707,35 @@ public sealed class SqliteDatabase
             using var command = connection.CreateCommand();
             command.CommandText = """
                 UPDATE Cases SET CallerName = $caller, CallerPhone = $phone,
-                    Description = $description, Location = $location WHERE Id = $id;
+                    Description = $description, Location = $location,
+                    Latitude = $latitude, Longitude = $longitude WHERE Id = $id;
                 """;
             command.Parameters.AddWithValue("$caller", _encryptor.Encrypt(row.Caller));
             command.Parameters.AddWithValue("$phone", _encryptor.Encrypt(row.Phone));
             command.Parameters.AddWithValue("$description", _encryptor.Encrypt(row.Description));
             command.Parameters.AddWithValue("$location", _encryptor.Encrypt(row.Location));
+            command.Parameters.AddWithValue("$latitude", _encryptor.Encrypt(row.Latitude));
+            command.Parameters.AddWithValue("$longitude", _encryptor.Encrypt(row.Longitude));
+            command.Parameters.AddWithValue("$id", row.Id);
+            command.ExecuteNonQuery();
+        }
+
+        var units = new List<(string Id, string Latitude, string Longitude)>();
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT Id, Latitude, Longitude FROM Units;";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+                units.Add((reader.GetString(0), Convert.ToString(reader.GetValue(1), CultureInfo.InvariantCulture)!,
+                    Convert.ToString(reader.GetValue(2), CultureInfo.InvariantCulture)!));
+        }
+
+        foreach (var row in units)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "UPDATE Units SET Latitude = $latitude, Longitude = $longitude WHERE Id = $id;";
+            command.Parameters.AddWithValue("$latitude", _encryptor.Encrypt(row.Latitude));
+            command.Parameters.AddWithValue("$longitude", _encryptor.Encrypt(row.Longitude));
             command.Parameters.AddWithValue("$id", row.Id);
             command.ExecuteNonQuery();
         }
@@ -704,7 +785,14 @@ public sealed class SqliteDatabase
     private string? DecryptOptional(SqliteDataReader reader, int column) =>
         reader.IsDBNull(column) ? null : _encryptor.Decrypt(reader.GetString(column));
 
+    private string EncryptCoordinate(double value) =>
+        _encryptor.Encrypt(value.ToString("R", CultureInfo.InvariantCulture));
+
+    private double DecryptCoordinate(object value) =>
+        double.Parse(_encryptor.Decrypt(Convert.ToString(value, CultureInfo.InvariantCulture)!),
+            CultureInfo.InvariantCulture);
+
     private sealed record StoredCase(Guid Id, string CallerName, string CallerPhone, string IncidentType,
         string Description, string Location, DateTimeOffset RecordedAt, Severity Severity,
-        Priority CalculatedPriority, Priority Priority, CaseStatus Status);
+        Priority CalculatedPriority, Priority Priority, CaseStatus Status, double Latitude, double Longitude);
 }

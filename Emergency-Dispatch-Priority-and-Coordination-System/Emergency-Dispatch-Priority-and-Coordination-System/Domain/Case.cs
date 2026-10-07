@@ -7,11 +7,12 @@ public enum ResponseUnitType { Medical, Police, Fire }
 
 public sealed class CaseAssignment
 {
-    internal CaseAssignment(Unit unit, DateTimeOffset assignedAt)
-        => (Unit, AssignedAt) = (unit, assignedAt);
+    internal CaseAssignment(Unit unit, DateTimeOffset assignedAt, double distanceKilometres)
+        => (Unit, AssignedAt, DistanceKilometres) = (unit, assignedAt, distanceKilometres);
 
     public Unit Unit { get; }
     public DateTimeOffset AssignedAt { get; }
+    public double DistanceKilometres { get; }
     public DateTimeOffset? SignedOffAt { get; private set; }
     public bool IsActive => SignedOffAt is null;
 
@@ -30,6 +31,8 @@ public sealed class Case
     public string IncidentType { get; }
     public string Description { get; }
     public string Location { get; }
+    public double Latitude { get; }
+    public double Longitude { get; }
     public DateTimeOffset RecordedAt { get; }
     public Severity Severity { get; }
     public Priority CalculatedPriority { get; private set; }
@@ -42,15 +45,17 @@ public sealed class Case
 
     public Case(string callerName, string callerPhone, string incidentType, string description,
         string location, Severity severity, IEnumerable<ResponseUnitType> requiredUnitTypes,
-        DateTimeOffset? recordedAt = null)
+        DateTimeOffset? recordedAt = null, double latitude = -36.8485, double longitude = 174.7633)
         : this(Guid.NewGuid(), callerName, callerPhone, incidentType, description, location, severity,
-            requiredUnitTypes, recordedAt ?? DateTimeOffset.UtcNow, Priority.Low, Priority.Low, CaseStatus.Open)
+            requiredUnitTypes, recordedAt ?? DateTimeOffset.UtcNow, Priority.Low, Priority.Low, CaseStatus.Open,
+            latitude, longitude)
     {
     }
 
     internal Case(Guid id, string callerName, string callerPhone, string incidentType, string description,
         string location, Severity severity, IEnumerable<ResponseUnitType> requiredUnitTypes,
-        DateTimeOffset recordedAt, Priority calculatedPriority, Priority priority, CaseStatus status)
+        DateTimeOffset recordedAt, Priority calculatedPriority, Priority priority, CaseStatus status,
+        double latitude, double longitude)
     {
         Id = id;
         CallerName = Require(callerName, nameof(callerName));
@@ -58,6 +63,9 @@ public sealed class Case
         IncidentType = Require(incidentType, nameof(incidentType));
         Description = Require(description, nameof(description));
         Location = Require(location, nameof(location));
+        ValidateCoordinates(latitude, longitude);
+        Latitude = latitude;
+        Longitude = longitude;
         Severity = severity;
         RequiredUnitTypes = requiredUnitTypes?.Distinct().ToArray()
             ?? throw new ArgumentNullException(nameof(requiredUnitTypes));
@@ -68,9 +76,10 @@ public sealed class Case
         Status = status;
     }
 
-    internal void RestoreAssignment(Unit unit, DateTimeOffset assignedAt, DateTimeOffset? signedOffAt)
+    internal void RestoreAssignment(Unit unit, DateTimeOffset assignedAt, DateTimeOffset? signedOffAt,
+        double distanceKilometres)
     {
-        var assignment = new CaseAssignment(unit, assignedAt);
+        var assignment = new CaseAssignment(unit, assignedAt, distanceKilometres);
         if (signedOffAt.HasValue) assignment.SignOff(signedOffAt.Value);
         _assignments.Add(assignment);
     }
@@ -83,12 +92,13 @@ public sealed class Case
 
     public void OverridePriority(Priority priority) => Priority = priority;
 
-    public bool Assign(Unit unit)
+    public bool Assign(Unit unit, double distanceKilometres = 0)
     {
         ArgumentNullException.ThrowIfNull(unit);
         if (Status == CaseStatus.Closed || !RequiredUnitTypes.Contains(unit.Type) ||
             _assignments.Any(a => a.Unit.Type == unit.Type) || !unit.TryAssign(this)) return false;
-        _assignments.Add(new CaseAssignment(unit, DateTimeOffset.UtcNow));
+        if (distanceKilometres < 0) throw new ArgumentOutOfRangeException(nameof(distanceKilometres));
+        _assignments.Add(new CaseAssignment(unit, DateTimeOffset.UtcNow, distanceKilometres));
         Status = CaseStatus.InProgress;
         return true;
     }
@@ -135,4 +145,10 @@ public sealed class Case
 
     private static string Require(string value, string name) =>
         string.IsNullOrWhiteSpace(value) ? throw new ArgumentException("This field is required.", name) : value.Trim();
+
+    private static void ValidateCoordinates(double latitude, double longitude)
+    {
+        if (latitude is < -90 or > 90) throw new ArgumentOutOfRangeException(nameof(latitude));
+        if (longitude is < -180 or > 180) throw new ArgumentOutOfRangeException(nameof(longitude));
+    }
 }
