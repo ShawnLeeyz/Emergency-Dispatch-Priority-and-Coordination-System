@@ -9,7 +9,7 @@ all required units have signed off.
 From the repository root:
 
 ```powershell
-dotnet run --project .\Emergency-Dispatch-Priority-and-Coordination-System\DispatchWeb
+dotnet run --project "./Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System/DispatchWeb/DispatchWeb.csproj"
 ```
 
 Open the local URL shown by ASP.NET Core. Runtime data is stored in
