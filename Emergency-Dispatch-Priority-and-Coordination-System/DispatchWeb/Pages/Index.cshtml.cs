@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DispatchWeb.Pages;
 
+/// <summary>Loads current cases and recent assignments for the dispatcher dashboard.</summary>
 public sealed class IndexModel(ICaseRepository cases, IDepartmentRepository departments, IDispatchNotifier notifier) : PageModel
 {
     public IReadOnlyCollection<Case> Cases { get; private set; } = [];

@@ -3,6 +3,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Infrastructure;
 
+/// <summary>Supplies predictable departments and units for isolated tests.</summary>
 public sealed class InMemoryDepartmentRepository : IDepartmentRepository
 {
     private readonly IReadOnlyCollection<Department> _departments =
@@ -14,5 +15,6 @@ public sealed class InMemoryDepartmentRepository : IDepartmentRepository
 
     public IReadOnlyCollection<Department> GetAll() => _departments;
     public Department? Get(ResponseUnitType type) => _departments.SingleOrDefault(d => d.Type == type);
+    // The same unit objects stay in memory, so there is nothing extra to save.
     public void Save(Unit unit) { }
 }

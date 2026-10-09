@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DispatchWeb.Pages.Cases;
 
+/// <summary>Allows an authorised user to change priority with a recorded reason.</summary>
 public sealed class OverridePriorityModel(ICaseRepository cases, DispatchService dispatchService) : PageModel
 {
     [BindProperty(SupportsGet = true)]
@@ -27,6 +28,7 @@ public sealed class OverridePriorityModel(ICaseRepository cases, DispatchService
 
     public IActionResult OnPost()
     {
+        // Access, case existence, and form validation are checked before changing the case.
         if (!CanOverride()) return RedirectToPage("/Account/AccessDenied");
         if (!LoadCase()) return NotFound();
         if (!ModelState.IsValid) return Page();

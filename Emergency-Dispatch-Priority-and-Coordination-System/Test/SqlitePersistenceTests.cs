@@ -5,6 +5,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Logic;
 
 namespace Test;
 
+/// <summary>Checks that operational data remains correct after reopening SQLite.</summary>
 [TestClass]
 public sealed class SqlitePersistenceTests
 {

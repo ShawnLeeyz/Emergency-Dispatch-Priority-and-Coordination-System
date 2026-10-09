@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Test;
 
+/// <summary>Checks valid, invalid, persistent, and authorised priority overrides.</summary>
 [TestClass]
 public sealed class PriorityOverrideTests
 {

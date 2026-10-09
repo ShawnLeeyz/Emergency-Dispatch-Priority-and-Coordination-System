@@ -2,6 +2,7 @@ using System.Security.Claims;
 
 namespace DispatchWeb.Authentication;
 
+/// <summary>Provides short helpers for reading the current user's claims.</summary>
 public static class UserContext
 {
     public static string Role(this ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.Role) ?? string.Empty;

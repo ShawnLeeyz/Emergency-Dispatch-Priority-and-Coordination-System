@@ -2,6 +2,7 @@ namespace Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
 public enum UnitAvailability { Available, Unavailable }
 
+/// <summary>Represents one response unit and controls its availability and current case.</summary>
 public sealed class Unit
 {
     public Guid Id { get; }
@@ -39,6 +40,7 @@ public sealed class Unit
 
     public void UpdateDetails(string location, int personnelCount, double latitude, double longitude)
     {
+        // Availability is intentionally not editable; assignments control it.
         Location = string.IsNullOrWhiteSpace(location) ? throw new ArgumentException("Location is required.", nameof(location)) : location.Trim();
         PersonnelCount = personnelCount > 0 ? personnelCount : throw new ArgumentOutOfRangeException(nameof(personnelCount));
         UpdateCoordinates(latitude, longitude);
@@ -46,6 +48,7 @@ public sealed class Unit
 
     internal bool TryAssign(Case dispatchCase)
     {
+        // A unit can hold only one active case at a time.
         if (Availability != UnitAvailability.Available) return false;
         Availability = UnitAvailability.Unavailable;
         AssignedCaseId = dispatchCase.Id;
@@ -54,6 +57,7 @@ public sealed class Unit
 
     internal void Release()
     {
+        // Sign-off returns the unit to the available pool.
         Availability = UnitAvailability.Available;
         AssignedCaseId = null;
     }

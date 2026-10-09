@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DispatchWeb.Pages.Admin;
 
+/// <summary>Builds the admin overview used to reach each demonstration area.</summary>
 public sealed class IndexModel(DemoAccountStore accounts, ICaseRepository cases, IDepartmentRepository departments) : PageModel
 {
     public IReadOnlyCollection<DemoAccount> Accounts { get; private set; } = [];

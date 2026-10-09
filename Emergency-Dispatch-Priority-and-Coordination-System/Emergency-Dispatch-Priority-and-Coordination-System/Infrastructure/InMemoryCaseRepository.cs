@@ -4,6 +4,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Infrastructure;
 
+/// <summary>Keeps cases in memory so business rules can be tested without SQLite.</summary>
 public sealed class InMemoryCaseRepository : ICaseRepository
 {
     private readonly ConcurrentDictionary<Guid, Case> _cases = new();
@@ -13,6 +14,7 @@ public sealed class InMemoryCaseRepository : ICaseRepository
     public IReadOnlyCollection<Case> GetAll() => _cases.Values.OrderByDescending(c => c.RecordedAt).ToArray();
     public IReadOnlyCollection<Case> Search(string? callerName, string? caseId, DateOnly? date)
     {
+        // A case is included when any supplied search field matches.
         var hasCaller = !string.IsNullOrWhiteSpace(callerName);
         var hasCaseId = !string.IsNullOrWhiteSpace(caseId);
         var hasDate = date.HasValue;

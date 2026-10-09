@@ -5,6 +5,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Logic;
 
 namespace Test;
 
+/// <summary>Checks that important actions create complete and persistent audit records.</summary>
 [TestClass]
 public sealed class AuditLoggingTests
 {

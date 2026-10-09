@@ -1,4 +1,5 @@
 @page
 @model DispatchWeb.Pages.Account.AccessDeniedModel
+@* Explains that the signed-in account cannot open the requested page. *@
 @{ ViewData["Title"] = "Access denied"; }
 <section class="message-page"><p class="eyebrow">Access restricted</p><h1>Access Denied</h1><p>You do not have permission to view this page.</p><a class="button" href="@Model.HomePage">Return to Dashboard</a></section>

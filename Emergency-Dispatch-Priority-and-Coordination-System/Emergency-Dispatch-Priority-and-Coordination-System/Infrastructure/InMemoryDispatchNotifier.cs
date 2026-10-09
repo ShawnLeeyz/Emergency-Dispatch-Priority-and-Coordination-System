@@ -4,6 +4,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Infrastructure;
 
+/// <summary>Collects assignment messages in memory for tests.</summary>
 public sealed class InMemoryDispatchNotifier : IDispatchNotifier
 {
     private readonly ConcurrentQueue<DispatchNotification> _notifications = new();

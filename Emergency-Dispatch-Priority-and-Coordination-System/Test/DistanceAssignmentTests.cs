@@ -5,6 +5,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Logic;
 
 namespace Test;
 
+/// <summary>Checks closest-unit selection, unavailable units, ties, and stored distances.</summary>
 [TestClass]
 public sealed class DistanceAssignmentTests
 {

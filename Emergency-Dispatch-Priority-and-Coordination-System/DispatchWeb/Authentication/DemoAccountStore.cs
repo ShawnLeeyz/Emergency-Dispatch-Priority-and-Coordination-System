@@ -3,6 +3,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
 namespace DispatchWeb.Authentication;
 
+/// <summary>Seeds demonstration users and validates their stored password hashes.</summary>
 public sealed class DemoAccountStore
 {
     private readonly IUserAccountRepository _accounts;
@@ -17,6 +18,7 @@ public sealed class DemoAccountStore
 
     public DemoAccount? Validate(string username, string password)
     {
+        // Only a successful hash check returns account details for the cookie.
         if (string.IsNullOrWhiteSpace(username)) return null;
 
         // The database supplies the stored salt and hash. The entered password is hashed
@@ -34,6 +36,7 @@ public sealed class DemoAccountStore
 
     private void SeedDemoAccounts()
     {
+        // These fixed accounts make every role easy to demonstrate and test.
         // These are fake university demonstration passwords. Each one is hashed with a new random
         // salt before storage, so the original password never appears in the SQLite database.
         Add("dispatch01", "dispatch-demo", "Alex Dispatcher", DemoRoles.Dispatcher, null);

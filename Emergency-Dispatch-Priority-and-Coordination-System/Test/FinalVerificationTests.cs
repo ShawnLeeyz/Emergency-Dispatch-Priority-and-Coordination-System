@@ -6,6 +6,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Logic;
 
 namespace Test;
 
+/// <summary>Runs final database performance and multi-restart lifecycle checks.</summary>
 [TestClass]
 public sealed class FinalVerificationTests
 {

@@ -1,5 +1,6 @@
 @page "/Departments/{department}"
 @model DispatchWeb.Pages.Departments.DashboardModel
+@* Shows a department only the cases routed to that department. *@
 
 @{
     ViewData["Title"] = $"{Model.Department.Name} dashboard";

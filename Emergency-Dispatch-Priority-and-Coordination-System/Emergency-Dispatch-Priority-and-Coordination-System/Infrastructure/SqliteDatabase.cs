@@ -18,6 +18,7 @@ public sealed class SqliteDatabase
     public SqliteDatabase(string connectionString, string? encryptionKeyPath = null)
     {
         _connectionString = connectionString;
+        // Prepare the file, protect sensitive fields, seed prototype data, then rebuild domain objects.
         CreateDatabaseDirectory();
         _encryptor = new LocalDataEncryptor(encryptionKeyPath ?? GetDefaultKeyPath());
         CreateTables();
@@ -256,6 +257,7 @@ public sealed class SqliteDatabase
 
     private void SaveCaseInternal(Case dispatchCase)
     {
+        // One transaction keeps the case, required departments, and assignments consistent.
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();
 
@@ -332,6 +334,7 @@ public sealed class SqliteDatabase
 
     private static void DeleteCaseChildren(SqliteConnection connection, SqliteTransaction transaction, Guid caseId)
     {
+        // Child rows are rewritten from the current domain object during every save.
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
@@ -446,6 +449,7 @@ public sealed class SqliteDatabase
 
     private void SeedDepartments()
     {
+        // Seed only the fixed demonstration departments when the database is new.
         using var connection = OpenConnection();
         using var countCommand = connection.CreateCommand();
         countCommand.CommandText = "SELECT COUNT(*) FROM Departments;";
@@ -498,6 +502,7 @@ public sealed class SqliteDatabase
 
     private void LoadData()
     {
+        // Units load first because restored case assignments refer to those objects.
         using var connection = OpenConnection();
         LoadDepartmentsAndUnits(connection);
         LoadCases(connection);
@@ -587,6 +592,7 @@ public sealed class SqliteDatabase
 
     private void LoadAssignments(SqliteConnection connection, Case dispatchCase)
     {
+        // Restore historical and active assignments without repeating assignment rules.
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT UnitId, AssignedAt, SignedOffAt, DistanceKilometres
@@ -618,6 +624,7 @@ public sealed class SqliteDatabase
 
     private void ApplySchemaUpdates()
     {
+        // Small additive updates let an older prototype database open with the latest code.
         using var connection = OpenConnection();
         AddColumnIfMissing(connection, "Cases", "CalculatedPriority",
             "CalculatedPriority INTEGER NOT NULL DEFAULT 0", "UPDATE Cases SET CalculatedPriority = Priority;");
@@ -689,6 +696,7 @@ public sealed class SqliteDatabase
 
     private void EncryptExistingValues()
     {
+        // Plain values from an older database are encrypted once during startup.
         using var connection = OpenConnection();
         var cases = new List<(string Id, string Caller, string Phone, string Description, string Location,
             string Latitude, string Longitude)>();

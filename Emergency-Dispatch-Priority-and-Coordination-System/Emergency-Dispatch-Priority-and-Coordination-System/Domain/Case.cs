@@ -5,6 +5,7 @@ public enum Priority { Low, Medium, High }
 public enum Severity { Low, Medium, High }
 public enum ResponseUnitType { Medical, Police, Fire }
 
+/// <summary>Records which unit responded, its distance, and when it signed off.</summary>
 public sealed class CaseAssignment
 {
     internal CaseAssignment(Unit unit, DateTimeOffset assignedAt, double distanceKilometres)
@@ -79,6 +80,7 @@ public sealed class Case
     internal void RestoreAssignment(Unit unit, DateTimeOffset assignedAt, DateTimeOffset? signedOffAt,
         double distanceKilometres)
     {
+        // Database loading rebuilds the same assignment history without running a new dispatch.
         var assignment = new CaseAssignment(unit, assignedAt, distanceKilometres);
         if (signedOffAt.HasValue) assignment.SignOff(signedOffAt.Value);
         _assignments.Add(assignment);
@@ -86,6 +88,7 @@ public sealed class Case
 
     public void SetCalculatedPriority(Priority priority)
     {
+        // A new case starts with the calculated result as its visible priority.
         CalculatedPriority = priority;
         Priority = priority;
     }
@@ -95,6 +98,7 @@ public sealed class Case
     public bool Assign(Unit unit, double distanceKilometres = 0)
     {
         ArgumentNullException.ThrowIfNull(unit);
+        // Reject closed cases, wrong unit types, duplicate departments, and unavailable units.
         if (Status == CaseStatus.Closed || !RequiredUnitTypes.Contains(unit.Type) ||
             _assignments.Any(a => a.Unit.Type == unit.Type) || !unit.TryAssign(this)) return false;
         if (distanceKilometres < 0) throw new ArgumentOutOfRangeException(nameof(distanceKilometres));
@@ -105,6 +109,7 @@ public sealed class Case
 
     public bool SignOff(Guid unitId)
     {
+        // Only an active assignment can sign off and release its response unit.
         var assignment = _assignments.SingleOrDefault(a => a.IsActive && a.Unit.Id == unitId);
         if (assignment is null) return false;
 
@@ -131,12 +136,14 @@ public sealed class Case
 
     private void UpdateStatus()
     {
+        // Any active unit keeps the case in progress.
         if (_assignments.Any(a => a.IsActive))
         {
             Status = CaseStatus.InProgress;
             return;
         }
 
+        // The case closes only when every required department has completed a response.
         Status = RequiredUnitTypes.All(type =>
             _assignments.Any(a => a.Unit.Type == type && a.SignedOffAt.HasValue))
             ? CaseStatus.Closed

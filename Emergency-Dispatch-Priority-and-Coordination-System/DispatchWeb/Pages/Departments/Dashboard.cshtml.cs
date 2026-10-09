@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DispatchWeb.Pages.Departments;
 
+/// <summary>Loads active cases, units, and notifications for one department.</summary>
 public sealed class DashboardModel(
     ICaseRepository cases,
     IDepartmentRepository departments,
@@ -23,6 +24,7 @@ public sealed class DashboardModel(
 
     private bool TryLoad(string department)
     {
+        // Route text is converted to a known department before its scoped data is shown.
         if (!Enum.TryParse<ResponseUnitType>(department, true, out var type)) return false;
         var selectedDepartment = departments.Get(type);
         if (selectedDepartment is null) return false;

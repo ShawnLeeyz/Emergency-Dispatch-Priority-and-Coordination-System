@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Test;
 
+/// <summary>Uses real HTTP requests to check authentication, pages, and the demo workflow.</summary>
 [TestClass]
 public sealed class WebApplicationTests
 {

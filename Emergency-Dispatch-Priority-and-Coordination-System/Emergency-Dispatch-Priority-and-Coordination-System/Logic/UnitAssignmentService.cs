@@ -2,6 +2,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Logic;
 
+/// <summary>Selects the closest available unit using straight-line geographic distance.</summary>
 public sealed class UnitAssignmentService : IUnitAssignmentService
 {
     public Unit? SelectClosestAvailable(IEnumerable<Unit> units, Case dispatchCase)
@@ -9,6 +10,7 @@ public sealed class UnitAssignmentService : IUnitAssignmentService
         ArgumentNullException.ThrowIfNull(units);
         ArgumentNullException.ThrowIfNull(dispatchCase);
 
+        // Unit identifier provides a repeatable result when two units are equally distant.
         return units
             .Where(unit => unit.Availability == UnitAvailability.Available)
             .OrderBy(unit => CalculateDistanceKilometres(dispatchCase, unit))

@@ -7,6 +7,7 @@ using Microsoft.Data.Sqlite;
 
 namespace Test;
 
+/// <summary>Checks password hashing, authentication restart, and encrypted database values.</summary>
 [TestClass]
 public sealed class SecurityTests
 {

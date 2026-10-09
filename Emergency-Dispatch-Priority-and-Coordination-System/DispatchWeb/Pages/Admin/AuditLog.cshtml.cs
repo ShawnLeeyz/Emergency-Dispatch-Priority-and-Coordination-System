@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DispatchWeb.Pages.Admin;
 
+/// <summary>Loads the persistent audit events for the prototype administrator.</summary>
 public sealed class AuditLogModel(IAuditRepository audit) : PageModel
 {
     public IReadOnlyCollection<AuditEvent> Events { get; private set; } = [];

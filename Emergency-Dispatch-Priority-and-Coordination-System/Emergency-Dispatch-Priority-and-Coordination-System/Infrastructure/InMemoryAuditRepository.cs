@@ -4,6 +4,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Infrastructure;
 
+/// <summary>Keeps audit events in memory for fast and isolated tests.</summary>
 public sealed class InMemoryAuditRepository : IAuditRepository
 {
     private readonly ConcurrentQueue<AuditEvent> _events = new();

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using DispatchWeb.Authentication;
 namespace DispatchWeb.Pages;
 
+/// <summary>Lists response units and handles permitted detail updates.</summary>
 public sealed class UnitsModel(IDepartmentRepository departments, DispatchService dispatchService) : PageModel
 {
     [BindProperty(SupportsGet = true)]
@@ -25,6 +26,7 @@ public sealed class UnitsModel(IDepartmentRepository departments, DispatchServic
 
     public IActionResult OnPostUpdate()
     {
+        // A department can update only its own units; the admin may update any unit.
         if (!User.IsAdmin() && (!User.IsInRole(DemoRoles.Department) || !string.Equals(User.Scope(), Input.Department.ToString(), StringComparison.OrdinalIgnoreCase)))
             return RedirectToPage("/Account/AccessDenied");
         Department = Input.Department;
@@ -51,12 +53,14 @@ public sealed class UnitsModel(IDepartmentRepository departments, DispatchServic
 
     private void LoadDepartments()
     {
+        // The optional filter keeps department users focused on their own unit list.
         var all = departments.GetAll();
         Departments = Department.HasValue ? all.Where(d => d.Type == Department).ToArray() : all;
     }
 
     private bool ApplyScope()
     {
+        // Convert the scope claim into the department filter used by the page.
         if (User.IsAdmin()) return true;
         if (!User.IsInRole(DemoRoles.Department) || !Enum.TryParse<ResponseUnitType>(User.Scope(), true, out var type)) return false;
         if (Department.HasValue && Department != type) return false;

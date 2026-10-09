@@ -1,3 +1,4 @@
+@* Provides the shared header, navigation, messages and footer used by every page. *@
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -50,6 +51,7 @@
     @if (ViewData["AutoRefresh"] as bool? == true)
     {
         <script>
+            // Refresh live dashboards only when the user is not editing a form.
             document.querySelectorAll("form").forEach(function (form) {
                 form.addEventListener("input", function () { form.dataset.dirty = "true"; });
             });

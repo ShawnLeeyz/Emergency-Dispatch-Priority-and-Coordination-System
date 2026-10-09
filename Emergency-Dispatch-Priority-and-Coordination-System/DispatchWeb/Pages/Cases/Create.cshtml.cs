@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DispatchWeb.Pages.Cases;
 
+/// <summary>Accepts validated emergency details and starts the dispatch workflow.</summary>
 public sealed class CreateModel(DispatchService dispatchService) : PageModel
 {
     [BindProperty]
@@ -17,6 +18,7 @@ public sealed class CreateModel(DispatchService dispatchService) : PageModel
 
     public IActionResult OnPost()
     {
+        // Razor validation stops incomplete or invalid form values before dispatch begins.
         if (!ModelState.IsValid)
         {
             return Page();

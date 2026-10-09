@@ -53,13 +53,16 @@ public sealed class KeywordSeverityPriority : IPriorityStrategy
     public Priority Calculate(Case dispatchCase)
     {
         ArgumentNullException.ThrowIfNull(dispatchCase);
+        // Search only the keyword groups for departments requested by this case.
         var text = $"{dispatchCase.IncidentType} {dispatchCase.Description}".ToLowerInvariant();
         var requiredTypes = dispatchCase.RequiredUnitTypes;
 
+        // High matches win, followed by medium matches and then the dispatcher's severity.
         if (requiredTypes.Any(type => ContainsAny(text, HighTermsExcludingOverriddenFireTerms(type))))
             return Priority.High;
         if (requiredTypes.Any(type => ContainsAny(text, MediumRiskTerms[type])))
             return Priority.Medium;
+        // Check "small wildfire" as medium before the broader high-risk "wildfire" term.
         if (requiredTypes.Contains(ResponseUnitType.Fire) && text.Contains("wildfire", StringComparison.Ordinal))
             return Priority.High;
 

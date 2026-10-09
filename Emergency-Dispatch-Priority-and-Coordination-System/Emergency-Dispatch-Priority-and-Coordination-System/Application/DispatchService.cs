@@ -3,6 +3,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Logic;
 
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Application;
 
+/// <summary>Coordinates the main case, assignment, sign-off, notification, and audit workflows.</summary>
 public sealed class DispatchService
 {
     private readonly ICaseRepository _cases;
@@ -21,12 +22,14 @@ public sealed class DispatchService
     public Case CreateAndDispatch(CreateCaseRequest request, string performedBy = "System")
     {
         ArgumentNullException.ThrowIfNull(request);
+        // Build one valid case before it is prioritised, saved, and assigned.
         var dispatchCase = new Case(request.CallerName, request.CallerPhone, request.IncidentType,
             request.Description, request.Location, request.Severity, request.RequiredUnitTypes,
             latitude: request.Latitude, longitude: request.Longitude);
         dispatchCase.SetCalculatedPriority(_priorityStrategy.Calculate(dispatchCase));
         lock (_dispatchLock)
         {
+            // The lock keeps two dispatch requests from assigning the same unit at the same time.
             _cases.Add(dispatchCase);
             AddAudit(AuditEventTypes.CaseCreated, performedBy, dispatchCase, null, null,
                 $"Priority: {dispatchCase.Priority}; Departments: {string.Join(", ", dispatchCase.RequiredUnitTypes)}",
@@ -46,6 +49,7 @@ public sealed class DispatchService
                 ?? throw new InvalidOperationException("That unit is not actively assigned to this case.");
             if (unit.Type != departmentType)
                 throw new InvalidOperationException("That unit is managed by a different department.");
+            // The domain object releases the unit and decides whether the case can close.
             var previousStatus = dispatchCase.Status;
             dispatchCase.SignOff(unitId);
             AddAudit(AuditEventTypes.UnitSignedOff, performedBy, dispatchCase, unit.Identifier,
@@ -54,6 +58,7 @@ public sealed class DispatchService
                 AddAudit(AuditEventTypes.CaseClosed, performedBy, dispatchCase, null,
                     previousStatus.ToString(), CaseStatus.Closed.ToString(), "All required units signed off.");
 
+            // Reuse the released unit for the oldest compatible waiting case.
             var nextCase = AssignNextWaitingCase(unit, performedBy);
             _cases.Save(dispatchCase);
             if (nextCase is not null) _cases.Save(nextCase);
@@ -91,6 +96,7 @@ public sealed class DispatchService
             if (dispatchCase.Priority == newPriority)
                 throw new ArgumentException("Select a priority that is different from the current priority.", nameof(newPriority));
 
+            // Keep the calculated priority unchanged so both decisions can be reported.
             var oldPriority = dispatchCase.Priority;
             dispatchCase.OverridePriority(newPriority);
             _cases.Save(dispatchCase);
@@ -101,12 +107,14 @@ public sealed class DispatchService
 
     private void AssignAvailableUnits(Case dispatchCase, string performedBy)
     {
+        // Each required department can provide one closest available unit.
         var assigned = false;
         foreach (var responseType in dispatchCase.WaitingUnitTypes)
         {
             var units = _departments.Get(responseType)?.Units ?? [];
             var unit = _unitAssignment.SelectClosestAvailable(units, dispatchCase);
             if (unit is null) continue;
+            // Store the distance that was used to choose this unit.
             var distance = _unitAssignment.CalculateDistanceKilometres(dispatchCase, unit);
             if (!dispatchCase.Assign(unit, distance)) continue;
             assigned = true;
@@ -120,6 +128,7 @@ public sealed class DispatchService
 
     private Case? AssignNextWaitingCase(Unit availableUnit, string performedBy)
     {
+        // Recorded time creates a predictable first-in waiting queue.
         var waitingCase = _cases.GetAll()
             .Where(dispatchCase => dispatchCase.IsWaitingFor(availableUnit.Type))
             .OrderBy(dispatchCase => dispatchCase.RecordedAt)
@@ -158,6 +167,7 @@ public sealed class DispatchService
     }
 }
 
+/// <summary>Contains the information required to create a new emergency case.</summary>
 public sealed record CreateCaseRequest(string CallerName, string CallerPhone, string IncidentType,
     string Description, string Location, Severity Severity, IReadOnlyCollection<ResponseUnitType> RequiredUnitTypes,
     double Latitude = -36.8485, double Longitude = 174.7633);

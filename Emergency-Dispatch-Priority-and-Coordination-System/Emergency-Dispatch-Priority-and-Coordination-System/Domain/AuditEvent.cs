@@ -1,5 +1,6 @@
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
+/// <summary>Lists the important actions that can appear in the audit log.</summary>
 public static class AuditEventTypes
 {
     public const string CaseCreated = "Case created";

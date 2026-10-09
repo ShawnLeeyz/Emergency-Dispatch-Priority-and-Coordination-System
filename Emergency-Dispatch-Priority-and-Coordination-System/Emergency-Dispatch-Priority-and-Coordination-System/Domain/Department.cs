@@ -1,5 +1,6 @@
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
+/// <summary>Groups the response units that belong to one emergency department.</summary>
 public sealed class Department
 {
     private readonly List<Unit> _units = [];

@@ -3,6 +3,7 @@ using Emergency_Dispatch_Priority_and_Coordination_System.Domain;
 
 namespace Emergency_Dispatch_Priority_and_Coordination_System.Infrastructure;
 
+/// <summary>Connects the audit repository interface to SQLite storage.</summary>
 public sealed class SqliteAuditRepository(SqliteDatabase database) : IAuditRepository
 {
     public void Add(AuditEvent auditEvent) => database.AddAuditEvent(auditEvent);

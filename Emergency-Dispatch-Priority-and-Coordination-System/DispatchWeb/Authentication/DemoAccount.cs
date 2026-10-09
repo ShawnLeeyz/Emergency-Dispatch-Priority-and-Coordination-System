@@ -2,6 +2,7 @@ using System.Security.Claims;
 
 namespace DispatchWeb.Authentication;
 
+/// <summary>Names the roles used by the prototype's access checks.</summary>
 public static class DemoRoles
 {
     public const string Dispatcher = "Dispatcher";
@@ -10,10 +11,12 @@ public static class DemoRoles
     public const string Admin = "Admin";
 }
 
+/// <summary>Represents the safe account details placed in the sign-in cookie.</summary>
 public sealed record DemoAccount(string Username, string DisplayName, string Role, string? Scope)
 {
     public ClaimsPrincipal CreatePrincipal()
     {
+        // Claims let pages read the user's role and department or unit scope.
         var claims = new List<Claim>
         {
             new(ClaimTypes.Name, Username),

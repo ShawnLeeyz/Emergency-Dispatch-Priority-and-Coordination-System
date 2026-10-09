@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Test;
 
+/// <summary>Checks report content, event order, and role-based case access.</summary>
 [TestClass]
 public sealed class CaseReportingTests
 {

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DispatchWeb.Pages.ResponseUnits;
 
+/// <summary>Shows one unit's active work and handles its sign-off action.</summary>
 public sealed class IndexModel(IDepartmentRepository departments, ICaseRepository cases, IDispatchNotifier notifier, DispatchService dispatchService) : PageModel
 {
     public Unit Unit { get; private set; } = null!;
@@ -16,6 +17,7 @@ public sealed class IndexModel(IDepartmentRepository departments, ICaseRepositor
 
     public IActionResult OnPostSignOff(string unit, Guid caseId)
     {
+        // The posted case must still be the signed-in unit's active assignment.
         if (!Load(unit) || Unit.AssignedCaseId != caseId)
         {
             TempData["Error"] = "This unit does not have that active assignment.";
@@ -36,6 +38,7 @@ public sealed class IndexModel(IDepartmentRepository departments, ICaseRepositor
 
     private bool Load(string unit)
     {
+        // Non-admin users can load only the unit named in their scope claim.
         if (!User.IsAdmin() && !string.Equals(User.Scope(), unit, StringComparison.OrdinalIgnoreCase)) return false;
         Unit = departments.GetAll().SelectMany(department => department.Units).SingleOrDefault(candidate => candidate.Identifier.Equals(unit, StringComparison.OrdinalIgnoreCase))!;
         if (Unit is null) return false;

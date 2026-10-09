@@ -1,9 +1,11 @@
 namespace DispatchWeb.Authentication;
 
+/// <summary>Stops signed-in users from opening pages outside their role and scope.</summary>
 public sealed class RoleAccessMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext context)
     {
+        // Public and unauthenticated requests continue to ASP.NET's normal authentication handling.
         var path = context.Request.Path.Value ?? string.Empty;
         if (IsPublic(path))
         {
@@ -23,6 +25,7 @@ public sealed class RoleAccessMiddleware(RequestDelegate next)
             return;
         }
 
+        // Each operational role receives only the routes needed for its own workflow.
         var role = context.User.Role();
         var allowed = role switch
         {

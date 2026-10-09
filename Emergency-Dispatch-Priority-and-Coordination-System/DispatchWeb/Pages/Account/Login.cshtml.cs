@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DispatchWeb.Pages.Account;
 
+/// <summary>Validates demo credentials and creates the authentication cookie.</summary>
 public sealed class LoginModel(DemoAccountStore accounts) : PageModel
 {
     [BindProperty] public LoginInput Input { get; set; } = new();
@@ -20,6 +21,7 @@ public sealed class LoginModel(DemoAccountStore accounts) : PageModel
 
     public async Task<IActionResult> OnPostAsync()
     {
+        // Invalid input returns the same page without creating a signed-in session.
         if (!ModelState.IsValid) return Page();
 
         var account = accounts.Validate(Input.Username, Input.Password);
@@ -29,6 +31,7 @@ public sealed class LoginModel(DemoAccountStore accounts) : PageModel
             return Page();
         }
 
+        // Store only account claims in the cookie, never the entered password.
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, account.CreatePrincipal(),
             new AuthenticationProperties { IsPersistent = false });
         return LocalRedirect(account.LandingPage);

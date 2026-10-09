@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 namespace DispatchWeb.Pages;
 
+/// <summary>Searches current and completed cases using the dispatcher's filters.</summary>
 public sealed class HistoryModel(ICaseRepository cases) : PageModel
 {
     [BindProperty(SupportsGet = true)] public string? CallerName { get; set; }
