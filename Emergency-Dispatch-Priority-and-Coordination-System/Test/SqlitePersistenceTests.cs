@@ -114,7 +114,7 @@ public sealed class SqlitePersistenceTests
         try
         {
             // Arrange
-            var firstDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var firstDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var cases = new SqliteCaseRepository(firstDatabase);
             var departments = new SqliteDepartmentRepository(firstDatabase);
             var notifier = new SqliteDispatchNotifier(firstDatabase);
@@ -125,7 +125,7 @@ public sealed class SqlitePersistenceTests
             var dispatchCase = service.CreateAndDispatch(new CreateCaseRequest(
                 "Morgan Reid", "021 555 0103", "Police assistance", "Officer requested",
                 "15 Harbour Street", Severity.Medium, [ResponseUnitType.Police]));
-            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var restoredNotification = new SqliteDispatchNotifier(reopenedDatabase).GetAll().Single();
 
             // Assert
@@ -142,7 +142,7 @@ public sealed class SqlitePersistenceTests
 
     private static (SqliteCaseRepository Cases, SqliteDepartmentRepository Departments) CreateStore(string path)
     {
-        var database = new SqliteDatabase($"Data Source={path}");
+        var database = new SqliteDatabase($"Data Source={path};Pooling=False");
         return (new SqliteCaseRepository(database), new SqliteDepartmentRepository(database));
     }
 
@@ -159,3 +159,4 @@ public sealed class SqlitePersistenceTests
         if (File.Exists(path + ".key")) File.Delete(path + ".key");
     }
 }
+

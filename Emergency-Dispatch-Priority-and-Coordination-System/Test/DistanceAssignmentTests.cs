@@ -117,7 +117,7 @@ public sealed class DistanceAssignmentTests
         try
         {
             // Arrange
-            var firstDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var firstDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var cases = new SqliteCaseRepository(firstDatabase);
             var departments = new SqliteDepartmentRepository(firstDatabase);
             var service = CreateService(cases, departments, new SqliteAuditRepository(firstDatabase),
@@ -126,7 +126,7 @@ public sealed class DistanceAssignmentTests
             // Act
             var created = service.CreateAndDispatch(Request(-36.8520, 174.7650));
             var expectedDistance = created.Assignments.Single().DistanceKilometres;
-            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var restored = new SqliteCaseRepository(reopenedDatabase).Get(created.Id)!;
 
             // Assert
@@ -177,3 +177,4 @@ public sealed class DistanceAssignmentTests
         public void Save(Unit unit) { }
     }
 }
+

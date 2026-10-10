@@ -188,14 +188,14 @@ public sealed class WebApplicationTests
             builder.ConfigureAppConfiguration((_, configuration) =>
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["ConnectionStrings:DispatchDatabase"] = $"Data Source={_databasePath}"
+                    ["ConnectionStrings:DispatchDatabase"] = $"Data Source={_databasePath};Pooling=False"
                 }));
             builder.ConfigureServices(services =>
             {
                 // Program has already registered its database by this stage. Replacing that singleton
                 // guarantees HTTP tests cannot read from or write to the developer's application file.
                 services.RemoveAll<SqliteDatabase>();
-                services.AddSingleton(new SqliteDatabase($"Data Source={_databasePath}"));
+                services.AddSingleton(new SqliteDatabase($"Data Source={_databasePath};Pooling=False"));
             });
         }
 
@@ -207,3 +207,4 @@ public sealed class WebApplicationTests
         }
     }
 }
+

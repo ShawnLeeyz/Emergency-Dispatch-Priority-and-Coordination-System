@@ -18,7 +18,7 @@ public sealed class FinalVerificationTests
         try
         {
             // Arrange - database creation is outside the measurement because it happens at application start.
-            var database = new SqliteDatabase($"Data Source={databasePath}");
+            var database = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var service = CreateService(database);
             var request = new CreateCaseRequest(
                 "Performance Caller", "021 555 0160", "Building fire",
@@ -52,7 +52,7 @@ public sealed class FinalVerificationTests
         try
         {
             // Arrange
-            var firstDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var firstDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var firstService = CreateService(firstDatabase);
 
             // Act - create, restart, partially sign off, restart, then complete the case.
@@ -61,19 +61,19 @@ public sealed class FinalVerificationTests
                 "Collision with injuries", "30 Queen Street", Severity.High,
                 [ResponseUnitType.Police, ResponseUnitType.Medical], -36.8510, 174.7640), "dispatch02");
 
-            var secondDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var secondDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var secondCases = new SqliteCaseRepository(secondDatabase);
             var afterCreate = secondCases.Get(created.Id)!;
             var police = afterCreate.Assignments.Single(item => item.Unit.Type == ResponseUnitType.Police).Unit;
             CreateService(secondDatabase).SignOffUnit(afterCreate.Id, police.Id, police.Type, "pol01");
 
-            var thirdDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var thirdDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var thirdCases = new SqliteCaseRepository(thirdDatabase);
             var afterPartialSignOff = thirdCases.Get(created.Id)!;
             var medical = afterPartialSignOff.Assignments.Single(item => item.Unit.Type == ResponseUnitType.Medical).Unit;
             CreateService(thirdDatabase).SignOffUnit(afterPartialSignOff.Id, medical.Id, medical.Type, "med01");
 
-            var finalDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var finalDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var completed = new SqliteCaseRepository(finalDatabase).Get(created.Id)!;
 
             // Assert
@@ -111,3 +111,4 @@ public sealed class FinalVerificationTests
         if (File.Exists(path + ".key")) File.Delete(path + ".key");
     }
 }
+

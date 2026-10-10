@@ -83,7 +83,7 @@ public sealed class PriorityOverrideTests
         try
         {
             // Arrange
-            var firstDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var firstDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var firstCases = new SqliteCaseRepository(firstDatabase);
             var firstAudit = new SqliteAuditRepository(firstDatabase);
             var service = CreateService(firstCases, new SqliteDepartmentRepository(firstDatabase), firstAudit,
@@ -93,7 +93,7 @@ public sealed class PriorityOverrideTests
             // Act
             service.OverridePriority(dispatchCase.Id, Priority.Medium,
                 "Dispatcher confirmed additional risk.", "dispatch02");
-            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var restoredCase = new SqliteCaseRepository(reopenedDatabase).Get(dispatchCase.Id)!;
             var restoredAudit = new SqliteAuditRepository(reopenedDatabase).GetAll()
                 .Single(item => item.EventType == AuditEventTypes.PriorityOverridden);
@@ -163,3 +163,4 @@ public sealed class PriorityOverrideTests
         if (File.Exists(path + ".key")) File.Delete(path + ".key");
     }
 }
+

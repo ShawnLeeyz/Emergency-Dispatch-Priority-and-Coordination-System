@@ -17,7 +17,7 @@ public sealed class RequirementReliabilityTests
         try
         {
             // Arrange and act: submit 100 cases without releasing the limited Police units.
-            var firstDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var firstDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var firstService = CreateService(firstDatabase);
             for (var index = 1; index <= 100; index++)
             {
@@ -30,7 +30,7 @@ public sealed class RequirementReliabilityTests
             var submitted = new SqliteCaseRepository(firstDatabase).GetAll().ToArray();
 
             // Reopen the database to prove the collection remains displayable after restart.
-            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var reopenedCases = new SqliteCaseRepository(reopenedDatabase);
             var restored = reopenedCases.GetAll().ToArray();
             var activeCountBeforeSignOff = restored.Count(item => item.Status == CaseStatus.InProgress);
@@ -77,3 +77,4 @@ public sealed class RequirementReliabilityTests
         if (File.Exists(path + ".key")) File.Delete(path + ".key");
     }
 }
+

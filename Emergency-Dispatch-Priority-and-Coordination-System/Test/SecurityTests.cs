@@ -36,13 +36,13 @@ public sealed class SecurityTests
         try
         {
             // Arrange
-            var firstDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var firstDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var firstStore = new DemoAccountStore(
                 new SqliteUserAccountRepository(firstDatabase), new PasswordHasher());
 
             // Act
             var firstLogin = firstStore.Validate("dispatch01", "dispatch-demo");
-            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var reopenedStore = new DemoAccountStore(
                 new SqliteUserAccountRepository(reopenedDatabase), new PasswordHasher());
             var secondLogin = reopenedStore.Validate("dispatch01", "dispatch-demo");
@@ -67,11 +67,11 @@ public sealed class SecurityTests
         try
         {
             // Arrange
-            var database = new SqliteDatabase($"Data Source={databasePath}");
+            var database = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             _ = new DemoAccountStore(new SqliteUserAccountRepository(database), new PasswordHasher());
 
             // Act
-            using var connection = new SqliteConnection($"Data Source={databasePath}");
+            using var connection = new SqliteConnection($"Data Source={databasePath};Pooling=False");
             connection.Open();
             using var command = connection.CreateCommand();
             command.CommandText = "SELECT PasswordHash, PasswordSalt FROM UserAccounts WHERE Username = 'dispatch01';";
@@ -98,7 +98,7 @@ public sealed class SecurityTests
         try
         {
             // Arrange
-            var database = new SqliteDatabase($"Data Source={databasePath}");
+            var database = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var cases = new SqliteCaseRepository(database);
             var departments = new SqliteDepartmentRepository(database);
             var service = new DispatchService(cases, departments,
@@ -110,7 +110,7 @@ public sealed class SecurityTests
                 "Private Caller", "021 999 1234", "Medical assistance", "Private medical details",
                 "88 Confidential Road", Severity.High, [ResponseUnitType.Medical]));
             var storedValues = ReadStoredCaseValues(databasePath, created.Id);
-            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var restored = new SqliteCaseRepository(reopenedDatabase).Get(created.Id);
 
             // Assert
@@ -131,7 +131,7 @@ public sealed class SecurityTests
 
     private static (string Caller, string Latitude) ReadStoredCaseValues(string databasePath, Guid caseId)
     {
-        using var connection = new SqliteConnection($"Data Source={databasePath}");
+        using var connection = new SqliteConnection($"Data Source={databasePath};Pooling=False");
         connection.Open();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT CallerName, Latitude FROM Cases WHERE Id = $id;";
@@ -150,3 +150,4 @@ public sealed class SecurityTests
         if (File.Exists(path + ".key")) File.Delete(path + ".key");
     }
 }
+

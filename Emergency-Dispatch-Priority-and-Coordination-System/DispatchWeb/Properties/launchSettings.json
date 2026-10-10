@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "DispatchWeb": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:52893;http://localhost:52894"
+    }
+  }
+}

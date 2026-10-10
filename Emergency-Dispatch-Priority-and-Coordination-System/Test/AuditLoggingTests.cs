@@ -90,7 +90,7 @@ public sealed class AuditLoggingTests
         try
         {
             // Arrange
-            var firstDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var firstDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var firstAudit = new SqliteAuditRepository(firstDatabase);
             var service = CreateService(
                 new SqliteCaseRepository(firstDatabase),
@@ -102,7 +102,7 @@ public sealed class AuditLoggingTests
             var dispatchCase = service.CreateAndDispatch(Request(ResponseUnitType.Fire), "dispatch02");
             var unit = dispatchCase.AssignedUnits.Single();
             service.SignOffUnit(dispatchCase.Id, unit.Id, unit.Type, "fir01");
-            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath}");
+            var reopenedDatabase = new SqliteDatabase($"Data Source={databasePath};Pooling=False");
             var restoredEvents = new SqliteAuditRepository(reopenedDatabase).GetAll().ToArray();
 
             // Assert
