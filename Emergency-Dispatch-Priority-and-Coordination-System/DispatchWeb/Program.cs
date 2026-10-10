@@ -27,7 +27,8 @@ builder.Services.AddAuthorization();
 var databasePath = Path.Combine(builder.Environment.ContentRootPath, "Data", "dispatch.db");
 var connectionString = builder.Configuration.GetConnectionString("DispatchDatabase") ?? $"Data Source={databasePath}";
 // Dependency injection gives pages one shared database and replaceable service interfaces.
-builder.Services.AddSingleton(new SqliteDatabase(connectionString));
+builder.Services.AddSingleton<SqliteDatabase>(sp =>
+    new SqliteDatabase(connectionString));
 builder.Services.AddSingleton<ICaseRepository, SqliteCaseRepository>();
 builder.Services.AddSingleton<IDepartmentRepository, SqliteDepartmentRepository>();
 builder.Services.AddSingleton<IDispatchNotifier, SqliteDispatchNotifier>();
