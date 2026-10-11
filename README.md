@@ -9,7 +9,6 @@ all required units have signed off.
 From the repository root:
 
 ```powershell
-dotnet run --project "./Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System/DispatchWeb/DispatchWeb.csproj"
 dotnet run --project "./Emergency-Dispatch-Priority-and-Coordination-System/DispatchWeb/DispatchWeb.csproj"
 ```
 
@@ -70,6 +69,17 @@ The commands above provide the current local quality workflow. Final Assignment 
 
 - `docs/final-test-and-release-evidence.md`
 - `docs/final-defect-register.md`
+
+## Reports and supporting documents
+
+The submitted reports and their separate appendices are in the repository root:
+
+- `Quality Assurance Mid-Project Report (23211788, 23217987, 23204035).pdf`
+- `Quality Assurance Mid-Project Report (23211788, 23217987, 23204035) Appendix.pdf`
+- `Quality Assurance final-Project Report (23211788, 23217987, 23204035).pdf`
+- `Quality Assurance Final-Project Report (23211788, 23217987, 23204035) Appendix.pdf`
+
+The Markdown files in `docs/` contain test cases, traceability, design conformance notes, and release evidence.
 
 ## Prototype limitations
 

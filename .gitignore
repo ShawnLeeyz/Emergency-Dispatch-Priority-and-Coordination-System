@@ -32,6 +32,7 @@ Thumbs.db
 
 # Test results
 [Tt]est[Rr]esult*/
+testdiag.txt
 
 # Local embedded database files
 *.db
