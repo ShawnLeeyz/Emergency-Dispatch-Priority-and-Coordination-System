@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          path: src
         env:
           GIT_CONFIG_COUNT: '1'
           GIT_CONFIG_KEY_0: core.longpaths
@@ -26,18 +28,18 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-
+      
       - name: Restore dependencies
-        run: dotnet restore "Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System.slnx"
+        run: dotnet restore "src/Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System.slnx"
 
       - name: Build solution (Release)
-        run: dotnet build "Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System.slnx" --configuration Release --no-restore
+        run: dotnet build "src/Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System.slnx" --configuration Release --no-restore
 
       - name: Run MSTest tests
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path TestResults | Out-Null
-          dotnet test "Emergency-Dispatch-Priority-and-Coordination-System/Test/Test.csproj" --configuration Release --no-build --logger "trx;LogFileName=TestResults.trx" --results-directory ./TestResults
+          dotnet test "src/Emergency-Dispatch-Priority-and-Coordination-System/Test/Test.csproj" --configuration Release --no-build --logger "trx;LogFileName=TestResults.trx" --results-directory ./TestResults
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload test results
