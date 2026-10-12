@@ -1,7 +1,8 @@
-name: CI - Build and Test (.NET 10 on Windows)
+name: CI - Build and Test (.NET 10 on Linux)
 
 on:
   push:
+    branches: [CI-Test-Branch]
   pull_request:
     branches: [main]
 
@@ -9,18 +10,41 @@ permissions:
   contents: read
 
 jobs:
-  build-and-test-windows:
-    runs-on: windows-latest
+  build-and-test-linux:
+    runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Record CI environment and verify project paths
+        env:
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          mkdir -p TestResults
+          {
+            printf 'Workflow: %s\nRef: %s\nEvent SHA: %s\nRunner OS: %s\nRun: %s/%s/actions/runs/%s\nAttempt: %s\n' \
+              "$WORKFLOW_REF" "$GITHUB_REF" "$GITHUB_SHA" "$RUNNER_OS" \
+              "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+            printf 'Checked-out SHA: %s\n' "$(git rev-parse HEAD)"
+          } | tee TestResults/ci-environment.txt
+          test "$RUNNER_OS" = Linux
+          test -f "Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System.slnx"
+          test -f "Emergency-Dispatch-Priority-and-Coordination-System/Test/Test.csproj"
+
       - name: Set up .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      - name: Record SDK and solution projects
+        run: |
+          dotnet --info | tee TestResults/dotnet-info.txt
+          dotnet sln "Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System.slnx" list | tee TestResults/solution-projects.txt
 
       - name: Restore dependencies
         run: dotnet restore "Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System.slnx"
@@ -29,16 +53,17 @@ jobs:
         run: dotnet build "Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System.slnx" --configuration Release --no-restore
 
       - name: Run MSTest tests
-        shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path TestResults | Out-Null
           dotnet test "Emergency-Dispatch-Priority-and-Coordination-System/Test/Test.csproj" --configuration Release --no-build --logger "trx;LogFileName=TestResults.trx" --results-directory ./TestResults
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify test report was generated
+        run: test -s TestResults/TestResults.trx
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mstest-results
+          name: mstest-results-${{ github.run_id }}-${{ github.run_attempt }}
           path: TestResults/
           if-no-files-found: warn
+          retention-days: 90
