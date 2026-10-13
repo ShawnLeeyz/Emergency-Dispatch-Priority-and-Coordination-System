@@ -1,3 +1,4 @@
+
 name: CI - Build and Test (.NET 10 on Linux)
 
 on:
@@ -13,6 +14,7 @@ jobs:
   build-and-test-linux:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
     defaults:
       run:
         shell: bash
@@ -25,13 +27,14 @@ jobs:
         env:
           WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
-          mkdir -p TestResults
+          mkdir -p TestResults SmokeResults
           {
             printf 'Workflow: %s\nRef: %s\nEvent SHA: %s\nRunner OS: %s\nRun: %s/%s/actions/runs/%s\nAttempt: %s\n' \
               "$WORKFLOW_REF" "$GITHUB_REF" "$GITHUB_SHA" "$RUNNER_OS" \
               "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             printf 'Checked-out SHA: %s\n' "$(git rev-parse HEAD)"
           } | tee TestResults/ci-environment.txt
+
           test "$RUNNER_OS" = Linux
           test -f "Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System.slnx"
           test -f "Emergency-Dispatch-Priority-and-Coordination-System/Test/Test.csproj"
@@ -52,18 +55,65 @@ jobs:
       - name: Build solution (Release)
         run: dotnet build "Emergency-Dispatch-Priority-and-Coordination-System/Emergency-Dispatch-Priority-and-Coordination-System.slnx" --configuration Release --no-restore
 
+      # Smoke testing
+      - name: Run smoke tests
+        run: |
+          dotnet test "Emergency-Dispatch-Priority-and-Coordination-System/Test/Test.csproj" \
+            --configuration Release \
+            --no-build \
+            --filter "TestCategory=Smoke" \
+            --logger "trx;LogFileName=SmokeResults.trx" \
+            --results-directory ./SmokeResults
+
+      - name: Verify smoke test results
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+
+          path = "SmokeResults/SmokeResults.trx"
+          root = ET.parse(path).getroot()
+
+          namespace = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
+          counters = root.find(".//t:Counters", namespace)
+
+          if counters is None:
+              raise SystemExit("Smoke test results missing counters.")
+
+          total = int(counters.attrib.get("total", 0))
+          passed = int(counters.attrib.get("passed", 0))
+          failed = int(counters.attrib.get("failed", 0))
+
+          print(f"Smoke tests: Total={total}, Passed={passed}, Failed={failed}")
+
+          if total == 0:
+              raise SystemExit("No smoke tests were executed.")
+
+          if failed != 0 or passed != total:
+              raise SystemExit("Smoke tests did not all pass.")
+
+          print("Smoke test quality gate passed.")
+          PY
+
+      # Full automated test suite
       - name: Run MSTest tests
         run: |
-          dotnet test "Emergency-Dispatch-Priority-and-Coordination-System/Test/Test.csproj" --configuration Release --no-build --logger "trx;LogFileName=TestResults.trx" --results-directory ./TestResults
+          dotnet test "Emergency-Dispatch-Priority-and-Coordination-System/Test/Test.csproj" \
+            --configuration Release \
+            --no-build \
+            --logger "trx;LogFileName=TestResults.trx" \
+            --results-directory ./TestResults
 
       - name: Verify test report was generated
         run: test -s TestResults/TestResults.trx
 
+      # Preserve CI evidence
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mstest-results-${{ github.run_id }}-${{ github.run_attempt }}
-          path: TestResults/
+          path: |
+            TestResults/
+            SmokeResults/
           if-no-files-found: warn
           retention-days: 90

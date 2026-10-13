@@ -17,6 +17,7 @@ namespace Test;
 public sealed class PrototypeTesting
 {
     [TestMethod]
+    [TestCategory("Smoke")]
     public void TC01_CompleteEmergencyDetails_CreateOneCaseWithRecordedData()
     {
         var cases = new InMemoryCaseRepository();
@@ -67,6 +68,7 @@ public sealed class PrototypeTesting
     }
 
     [TestMethod]
+    [TestCategory("Smoke")]
     public void TC03_Submission_CreatesPrioritisesStoresAndAssignsMultiDepartmentCase()
     {
         var cases = new InMemoryCaseRepository();
@@ -96,6 +98,7 @@ public sealed class PrototypeTesting
     }
 
     [TestMethod]
+    [TestCategory("Smoke")]
     [DynamicData(nameof(AppendixPriorityCases))]
     public void TC04_AppendixDepartmentKeywordsTakePrecedence_ThenSeverityIsFallback(
         ResponseUnitType department,
@@ -172,6 +175,7 @@ public sealed class PrototypeTesting
     }
 
     [TestMethod]
+    [TestCategory("Smoke")]
     public void TC06_Assignment_SkipsUnavailableUnitAndSelectsClosestAvailableUnit()
     {
         var p01 = new Unit("P-01", ResponseUnitType.Police, "Central", 2, -36.8485, 174.7633);
@@ -325,6 +329,7 @@ public sealed class PrototypeTesting
     }
 
     [TestMethod]
+    [TestCategory("Smoke")]
     public void TC10_CaseRemainsInProgressUntilFinalUnitSignsOff()
     {
         var cases = new InMemoryCaseRepository();
